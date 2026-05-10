@@ -44,7 +44,7 @@ async def query(
     - Returns results with full trace
     """
     try:
-        result = await ctrl.handle(req.nl_query, db_id=req.db_id)
+        result = await ctrl.handle(req.nl_query, history=req.history, db_id=req.db_id)
         return QueryResponse.from_dict(result)
     except UnsafeQueryError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
@@ -65,7 +65,7 @@ async def explain(
     Useful for debugging and inspecting what the engine would do.
     """
     try:
-        return await ctrl.explain_only(req.nl_query, db_id=req.db_id)
+        return await ctrl.explain_only(req.nl_query, history=req.history, db_id=req.db_id)
     except Exception as exc:
         logger.exception("Error in /explain: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -96,6 +96,34 @@ async def list_tables(request: Request) -> list[dict[str, Any]]:
     """Returns all tables currently in the registry with their metadata."""
     model = get_model(request)
     return [t.to_dict() for t in model.registry.all_tables()]
+
+
+@router.get("/tables/{fqn:path}/data", response_model=dict, summary="Get sample data for a table")
+async def get_table_data(fqn: str, request: Request, limit: int = 50) -> dict[str, Any]:
+    """Returns the first N rows for a specific table."""
+    model = get_model(request)
+    
+    # Check if table exists in registry
+    table = model.registry.get(fqn)
+    if not table:
+        raise HTTPException(status_code=404, detail=f"Table {fqn} not found")
+    
+    try:
+        # Since we are fetching from a registered table, we trust the FQN
+        # but we still use the DB abstraction
+        query = f"SELECT * FROM {fqn} LIMIT {limit}"
+        rows = await model.db.execute(query)
+        columns = list(rows[0].keys()) if rows else []
+        
+        return {
+            "fqn": fqn,
+            "rows": rows,
+            "columns": columns,
+            "row_count": len(rows)
+        }
+    except Exception as exc:
+        logger.exception("Error fetching data for table %s: %s", fqn, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/log", response_model=list[dict], summary="Recent query history")

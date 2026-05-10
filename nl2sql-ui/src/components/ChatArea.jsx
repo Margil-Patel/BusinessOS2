@@ -45,11 +45,9 @@ const MessageBubble = ({ msg }) => {
   );
 };
 
-const ChatArea = () => {
-  const [messages, setMessages] = useState([]);
+const ChatArea = ({ messages, setMessages, explainMode, setExplainMode }) => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [explainMode, setExplainMode] = useState(false);
   const endRef = useRef(null);
 
   useEffect(() => {
@@ -65,7 +63,13 @@ const ChatArea = () => {
     setLoading(true);
 
     try {
-      const result = await api.query(userMsg, explainMode);
+      // Map existing messages to history format for the LLM
+      const history = messages.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.role === 'user' ? msg.content : (msg.data?.sql || msg.data?.error || 'Processed')
+      }));
+
+      const result = await api.query(userMsg, history, explainMode);
       setMessages(prev => [...prev, { role: 'ai', data: result }]);
     } catch (e) {
       setMessages(prev => [...prev, { role: 'ai', data: { error: e.message } }]);

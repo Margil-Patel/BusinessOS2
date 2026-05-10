@@ -108,6 +108,10 @@ class ModelFacade:
         """Return up to 20 distinct values for a column."""
         return await self.value_index.get(table, column)
 
+    async def search_data_values(self, keyword: str, table_names: list[str]) -> list[dict[str, Any]]:
+        """Search for a keyword across all columns of the given tables."""
+        return await self.db.search_all_columns(keyword, table_names)
+
     async def get_examples(self, query: str, top_k: int = 3) -> list[dict[str, Any]]:
         """Return similar past (NL, SQL) pairs for few-shot prompting."""
         examples = await self.query_log.get_similar(query, top_k=top_k)

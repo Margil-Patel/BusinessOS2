@@ -1,12 +1,16 @@
 const API_BASE = 'http://localhost:8000';
 
 export const api = {
-  async query(nlQuery, explainOnly = false) {
+  async query(nlQuery, history = [], explainOnly = false) {
     const endpoint = explainOnly ? '/explain' : '/query';
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nl_query: nlQuery, options: { explain_only: explainOnly } })
+      body: JSON.stringify({ 
+        nl_query: nlQuery, 
+        history: history,
+        options: { explain_only: explainOnly } 
+      })
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -30,6 +34,16 @@ export const api = {
   async getHistory() {
     const response = await fetch(`${API_BASE}/log`);
     if (!response.ok) throw new Error('Failed to fetch history');
+    return response.json();
+  },
+
+  async getTableData(fqn) {
+    // encodeURIComponent is important because fqn contains dots
+    const response = await fetch(`${API_BASE}/tables/${encodeURIComponent(fqn)}/data`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Failed to fetch data for ${fqn}`);
+    }
     return response.json();
   }
 };

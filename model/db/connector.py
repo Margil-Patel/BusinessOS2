@@ -95,6 +95,41 @@ class DatabaseConnector:
             logger.warning("fetch_distinct failed for %s.%s: %s", table, column, exc)
             return []
 
+    async def search_all_columns(self, keyword: str, tables: list[str]) -> list[dict[str, Any]]:
+        """
+        Search for a keyword across all string-like columns in the given tables.
+        Returns: [{"table": ..., "column": ..., "matched_value": ...}]
+        """
+        results = []
+        for table in tables:
+            try:
+                # 1. Get column names and types for this table
+                # We use a simple query to get the schema if we don't have it
+                # But here we'll just try to search common string columns or all of them
+                # For Postgres, we can use information_schema
+                cols_query = f"""
+                    SELECT column_name, data_type 
+                    FROM information_schema.columns 
+                    WHERE table_schema || '.' || table_name = '{table}'
+                    OR table_name = '{table}'
+                """
+                cols = await self.execute(cols_query)
+                string_cols = [c['column_name'] for c in cols if 'char' in c['data_type'].lower() or 'text' in c['data_type'].lower()]
+                
+                for col in string_cols:
+                    # Case-insensitive search
+                    search_query = f'SELECT DISTINCT "{col}" FROM {table} WHERE "{col}" ILIKE :kw LIMIT 5'
+                    matches = await self.execute(search_query, {"kw": f"%{keyword}%"})
+                    for m in matches:
+                        results.append({
+                            "table": table,
+                            "column": col,
+                            "matched_value": m[col]
+                        })
+            except Exception as exc:
+                logger.warning("Search failed for table %s: %s", table, exc)
+        return results
+
     # ── Introspection ─────────────────────────────────────────────────────────
 
     async def get_raw_engine(self) -> AsyncEngine:

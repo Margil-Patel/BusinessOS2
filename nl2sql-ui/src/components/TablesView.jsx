@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 
-const TablesView = () => {
+const TablesView = ({ onSelectTable }) => {
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -48,12 +48,17 @@ const TablesView = () => {
 
       <div className="tables-grid">
         {filteredTables.map(table => (
-          <div key={table.fqn} className="table-card glass-panel">
+          <div 
+            key={table.qualified_name} 
+            className="table-card glass-panel"
+            onClick={() => onSelectTable(table)}
+          >
             <h3>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/>
               </svg>
-              {table.fqn}
+              {table.name}
+              <span style={{fontSize: '0.7rem', opacity: 0.5, marginLeft: 'auto'}}>{table.schema}</span>
             </h3>
             <ul className="column-list">
               {table.columns.slice(0, 8).map(col => (

@@ -22,6 +22,10 @@ class QueryRequest(BaseModel):
         description="Natural language question to convert to SQL",
         examples=["Show me the top 10 customers by total orders this month"],
     )
+    history: list[dict[str, str]] = Field(
+        default_factory=list,
+        description="Optional list of previous messages in the conversation for context",
+    )
     db_id: str = Field(default="default", description="Target database identifier")
     options: QueryOptions = Field(default_factory=QueryOptions)
 

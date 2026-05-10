@@ -23,6 +23,8 @@ from tools.get_relationships import SCHEMA as GET_RELATIONSHIPS_SCHEMA
 from tools.get_relationships import get_table_relationships
 from tools.get_sample_values import SCHEMA as GET_SAMPLE_SCHEMA
 from tools.get_sample_values import get_sample_values
+from tools.search_data_values import SCHEMA as SEARCH_DATA_SCHEMA
+from tools.search_data_values import search_data_values
 from tools.get_schema import SCHEMA as GET_SCHEMA_SCHEMA
 from tools.get_schema import get_table_schema
 from tools.validate_sql import SCHEMA as VALIDATE_SQL_SCHEMA
@@ -40,6 +42,7 @@ TOOL_SCHEMAS = [
     GET_SCHEMA_SCHEMA,
     GET_RELATIONSHIPS_SCHEMA,
     GET_SAMPLE_SCHEMA,
+    SEARCH_DATA_SCHEMA,
     GET_EXAMPLES_SCHEMA,
     VALIDATE_SQL_SCHEMA,
 ]
@@ -50,6 +53,7 @@ TOOL_DISPATCH: dict[str, Any] = {
     "get_table_schema": get_table_schema,
     "get_table_relationships": get_table_relationships,
     "get_sample_values": get_sample_values,
+    "search_data_values": search_data_values,
     "get_query_examples": get_query_examples,
     "validate_sql": validate_sql,
 }
@@ -117,8 +121,9 @@ def _build_context_prompt(intent: Intent) -> str:
         f"1. Call find_relevant_tables first to identify which tables are needed\n"
         f"2. Call get_table_schema for those tables to get column details\n"
         f"3. If the query involves multiple tables, call get_table_relationships\n"
-        f"4. For status/enum columns in WHERE clauses, call get_sample_values\n"
-        f"5. For complex queries, call get_query_examples for few-shot context\n\n"
+        f"4. For ANY filter involving a string value (like a name, status, category, or type), call get_sample_values to see the exact casing and spelling used in the database.\n"
+        f"5. If the user mentions a specific value but you don't know which column it belongs to, call search_data_values to scan the database for matching values.\n"
+        f"6. For complex queries, call get_query_examples for few-shot context\n\n"
         f"When you have enough context to generate accurate SQL, stop calling tools."
     )
 
@@ -137,11 +142,23 @@ class ToolOrchestrator:
             api_key="ollama",  # Ollama ignores this but client requires it
         )
 
-    async def gather_context(self, intent: Intent) -> SchemaContext:
-        context = SchemaContext()
+    async def gather_context(
+        self, 
+        intent: Intent, 
+        history: list[dict[str, str]] | None = None,
+        initial_context: SchemaContext | None = None,
+    ) -> SchemaContext:
+        context = initial_context or SchemaContext()
         messages: list[Any] = [
             {"role": "system", "content": _build_context_prompt(intent)}
         ]
+
+        if history:
+            # History is passed as [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
+            # We filter it to keep it relevant
+            for msg in history[-10:]:  # Keep last 10 messages for context
+                # Map roles correctly for the LLM
+                messages.append(msg)
 
         max_rounds = self._settings.max_tool_rounds
 
@@ -149,9 +166,9 @@ class ToolOrchestrator:
             context.rounds_used = round_num + 1
             logger.debug("Tool loop round %d/%d", round_num + 1, max_rounds)
 
-            # Force find_relevant_tables on the first round
+            # Force find_relevant_tables on the first round ONLY if we have no history
             current_tool_choice: Any = "auto"
-            if round_num == 0:
+            if round_num == 0 and not history:
                 current_tool_choice = {"type": "function", "function": {"name": "find_relevant_tables"}}
 
             try:
@@ -242,6 +259,14 @@ class ToolOrchestrator:
         elif fn_name == "get_sample_values" and isinstance(result, list):
             key = f"{args.get('table', '?')}.{args.get('column', '?')}"
             ctx.sample_values[key] = result
+        elif fn_name == "search_data_values" and isinstance(result, list):
+            # Format as sample values too, so SQL generator sees them
+            for item in result:
+                key = f"{item['table']}.{item['column']}"
+                if key not in ctx.sample_values:
+                    ctx.sample_values[key] = []
+                if item['matched_value'] not in ctx.sample_values[key]:
+                    ctx.sample_values[key].append(item['matched_value'])
         elif fn_name == "get_query_examples" and isinstance(result, list):
             ctx.examples = result
 
