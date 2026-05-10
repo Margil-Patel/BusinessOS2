@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NL2SQL Engine — Project Brief for Antigravity</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&family=Instrument+Sans:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: #2a2a38;
+    --border2: #3a3a50;
+    --text: #e8e8f0;
+    --muted: #888898;
+    --dim: #555568;
+    --accent-v: #7c6ff7;
+    --accent-t: #2dd4aa;
+    --accent-a: #f5a623;
+    --accent-p: #e05b8b;
+    --accent-g: #5dd67a;
+    --accent-r: #f06060;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'Instrument Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0 32px;
+    height: 52px;
+    overflow-x: auto;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    padding: 0 14px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  nav a:hover { color: var(--text); border-bottom-color: var(--border2); }
+  nav a.active { color: var(--accent-v); border-bottom-color: var(--accent-v); }
+  .nav-brand {
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-right: 16px;
+    padding-right: 16px;
+    border-right: 1px solid var(--border);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  /* ─── LAYOUT ─── */
+  .page { max-width: 960px; margin: 0 auto; padding: 0 32px 120px; }
+
+  section { padding-top: 80px; }
+
+  /* ─── HERO ─── */
+  .hero {
+    padding: 80px 0 60px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent-t);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-tag::before {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 1px;
+    background: var(--accent-t);
+  }
+  h1 {
+    font-family: var(--font-head);
+    font-size: clamp(36px, 6vw, 58px);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    margin-bottom: 24px;
+    color: #fff;
+  }
+  h1 span { color: var(--accent-v); }
+  .hero-sub {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 620px;
+    line-height: 1.6;
+    margin-bottom: 36px;
+  }
+  .meta-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pill {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 40px;
+    border: 1px solid;
+    letter-spacing: 0.03em;
+  }
+  .pill-v { color: var(--accent-v); border-color: var(--accent-v); background: rgba(124,111,247,0.08); }
+  .pill-t { color: var(--accent-t); border-color: var(--accent-t); background: rgba(45,212,170,0.08); }
+  .pill-a { color: var(--accent-a); border-color: var(--accent-a); background: rgba(245,166,35,0.08); }
+  .pill-p { color: var(--accent-p); border-color: var(--accent-p); background: rgba(224,91,139,0.08); }
+  .pill-g { color: var(--accent-g); border-color: var(--accent-g); background: rgba(93,214,122,0.08); }
+
+  /* ─── SECTION HEADERS ─── */
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent-v);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  h2 {
+    font-family: var(--font-head);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  h3 {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .section-intro {
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 680px;
+    margin-bottom: 40px;
+    line-height: 1.65;
+  }
+
+  /* ─── CARDS ─── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--border2); }
+  .card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .icon-v { background: rgba(124,111,247,0.15); color: var(--accent-v); }
+  .icon-t { background: rgba(45,212,170,0.12); color: var(--accent-t); }
+  .icon-a { background: rgba(245,166,35,0.12); color: var(--accent-a); }
+  .icon-p { background: rgba(224,91,139,0.12); color: var(--accent-p); }
+  .icon-g { background: rgba(93,214,122,0.12); color: var(--accent-g); }
+  .icon-r { background: rgba(240,96,96,0.12); color: var(--accent-r); }
+  .card p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+  /* ─── CODE BLOCKS ─── */
+  .code-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 20px 0;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+  .code-filename {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent-t);
+    letter-spacing: 0.04em;
+  }
+  .code-lang {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.65;
+    color: #c8c8e0;
+  }
+  .kw { color: #a78bfa; }
+  .fn { color: #60d8b0; }
+  .st { color: #fbbf80; }
+  .cm { color: #555568; font-style: italic; }
+  .nm { color: #7dd3fc; }
+  .op { color: #94a3b8; }
+  .dc { color: #f472b6; }
+
+  /* ─── FLOW DIAGRAM ─── */
+  .flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 32px 0;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .flow-step {
+    flex: 1;
+    min-width: 130px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 14px;
+    position: relative;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: default;
+  }
+  .flow-step:hover { border-color: var(--border2); background: var(--surface2); }
+  .flow-step + .flow-step { margin-left: -1px; border-radius: 0; }
+  .flow-step:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .flow-step:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+  .flow-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--dim);
+    margin-bottom: 6px;
+  }
+  .flow-title {
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .flow-sub { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    color: var(--dim);
+    font-size: 14px;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+
+  /* ─── MVC GRID ─── */
+  .mvc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin: 32px 0;
+  }
+  .mvc-col {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .mvc-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .mvc-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .mvc-title {
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .mvc-sub { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .mvc-body { padding: 16px 20px; }
+  .mvc-item {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .mvc-item:last-child { border-bottom: none; }
+  .mvc-item-name { color: var(--text); margin-bottom: 2px; }
+  .mvc-item-desc { color: var(--dim); font-size: 11px; }
+  .mvc-v .mvc-head { background: rgba(45,212,170,0.06); }
+  .mvc-v .mvc-dot { background: var(--accent-t); }
+  .mvc-v .mvc-item-name { color: var(--accent-t); }
+  .mvc-c .mvc-head { background: rgba(124,111,247,0.06); }
+  .mvc-c .mvc-dot { background: var(--accent-v); }
+  .mvc-c .mvc-item-name { color: var(--accent-v); }
+  .mvc-m .mvc-head { background: rgba(245,166,35,0.06); }
+  .mvc-m .mvc-dot { background: var(--accent-a); }
+  .mvc-m .mvc-item-name { color: var(--accent-a); }
+
+  /* ─── PHASE TABLE ─── */
+  .phase-list { display: flex; flex-direction: column; gap: 12px; margin: 28px 0; }
+  .phase-row {
+    display: grid;
+    grid-template-columns: 48px 1fr 200px 80px;
+    gap: 16px;
+    align-items: start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    transition: border-color 0.2s;
+  }
+  .phase-row:hover { border-color: var(--border2); }
+  .phase-num {
+    font-family: var(--font-head);
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--border2);
+    line-height: 1;
+    padding-top: 2px;
+  }
+  .phase-name {
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .phase-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .phase-files { }
+  .phase-file {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--dim);
+    padding: 2px 0;
+    display: block;
+  }
+  .phase-file::before { content: '└ '; }
+  .phase-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 40px;
+    border: 1px solid;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .badge-1 { color: var(--accent-t); border-color: var(--accent-t); background: rgba(45,212,170,0.08); }
+  .badge-2 { color: var(--accent-v); border-color: var(--accent-v); background: rgba(124,111,247,0.08); }
+  .badge-3 { color: var(--accent-a); border-color: var(--accent-a); background: rgba(245,166,35,0.08); }
+  .badge-4 { color: var(--accent-p); border-color: var(--accent-p); background: rgba(224,91,139,0.08); }
+  .badge-5 { color: var(--accent-g); border-color: var(--accent-g); background: rgba(93,214,122,0.08); }
+  .badge-6 { color: var(--accent-r); border-color: var(--accent-r); background: rgba(240,96,96,0.08); }
+  .badge-7 { color: #e8e8f0; border-color: #555568; background: rgba(255,255,255,0.04); }
+
+  /* ─── TOOL CARDS ─── */
+  .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 28px 0; }
+  .tool-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .tool-card:hover { border-color: var(--border2); }
+  .tool-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent-t);
+    margin-bottom: 6px;
+  }
+  .tool-sig {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--dim);
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .tool-desc { font-size: 13px; color: var(--muted); line-height: 1.55; }
+  .tool-when {
+    margin-top: 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent-a);
+  }
+
+  /* ─── SCENARIO TABLE ─── */
+  .scenario-table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+  .scenario-table th {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dim);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .scenario-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    vertical-align: top;
+  }
+  .scenario-table tr:last-child td { border-bottom: none; }
+  .scenario-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .scenario-table td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .scenario-table td:nth-child(2) { color: var(--text); }
+  .scenario-table td:last-child { font-family: var(--font-mono); font-size: 11px; color: var(--accent-v); }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 60px 0 0;
+  }
+
+  /* ─── RULE CALLOUT ─── */
+  .rules { display: flex; flex-direction: column; gap: 10px; margin: 24px 0; }
+  .rule {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid;
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+  .rule-r { border-left-color: var(--accent-r); }
+  .rule-a { border-left-color: var(--accent-a); }
+  .rule-g { border-left-color: var(--accent-g); }
+  .rule-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .rule-text { font-size: 13px; color: var(--muted); line-height: 1.55; }
+  .rule-text strong { color: var(--text); font-weight: 500; }
+
+  /* ─── FOLDER TREE ─── */
+  .tree {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.8;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    color: var(--muted);
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+  .tree .dir { color: var(--text); }
+  .tree .file-v { color: var(--accent-v); }
+  .tree .file-t { color: var(--accent-t); }
+  .tree .file-a { color: var(--accent-a); }
+  .tree .file-p { color: var(--accent-p); }
+  .tree .cm { color: var(--dim); font-style: italic; }
+
+  /* ─── STACK TABLE ─── */
+  .stack-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+  .stack-table th {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dim);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    text-align: left;
+  }
+  .stack-table td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    vertical-align: top;
+  }
+  .stack-table tr:last-child td { border-bottom: none; }
+  .stack-table td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--accent-t); width: 160px; }
+  .stack-table td:nth-child(2) { color: var(--muted); width: 180px; }
+  .stack-table td:last-child { color: var(--dim); font-size: 12px; }
+
+  /* ─── FOOTER ─── */
+  .footer {
+    margin-top: 80px;
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: gap;
+  }
+  .footer-brand { font-family: var(--font-head); font-weight: 700; font-size: 14px; color: var(--dim); }
+  .footer-note { font-family: var(--font-mono); font-size: 11px; color: var(--dim); }
+
+  @media (max-width: 700px) {
+    .mvc-grid { grid-template-columns: 1fr; }
+    .tool-grid { grid-template-columns: 1fr; }
+    .phase-row { grid-template-columns: 36px 1fr; }
+    .phase-files, .phase-badge { display: none; }
+    .page { padding: 0 16px 80px; }
+    nav { padding: 0 16px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">NL2SQL Brief</div>
+  <a href="#overview" class="active">Overview</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#mvc">MVC</a>
+  <a href="#structure">Structure</a>
+  <a href="#tools">Tools</a>
+  <a href="#phases">Phases</a>
+  <a href="#code">Code</a>
+  <a href="#scenarios">Scenarios</a>
+  <a href="#rules">Rules</a>
+  <a href="#stack">Stack</a>
+</nav>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero" id="overview">
+    <div class="hero-tag">Project brief — Antigravity</div>
+    <h1>NL2SQL<br><span>Engine</span></h1>
+    <p class="hero-sub">
+      A production-grade natural language to SQL engine built on an MVC architecture,
+      a rich metadata layer, and a multi-tool LLM agent pipeline. This document is your
+      complete build reference.
+    </p>
+    <div class="meta-pills">
+      <span class="pill pill-v">Python 3.11+</span>
+      <span class="pill pill-t">FastAPI</span>
+      <span class="pill pill-a">Claude claude-sonnet-4-20250514</span>
+      <span class="pill pill-p">SQLAlchemy</span>
+      <span class="pill pill-g">FAISS / pgvector</span>
+      <span class="pill pill-t">Pydantic v2</span>
+      <span class="pill pill-v">MVC Architecture</span>
+    </div>
+  </div>
+
+  <!-- WHAT WE ARE BUILDING -->
+  <section id="architecture">
+    <div class="section-label">01 — What we are building</div>
+    <h2>System overview</h2>
+    <p class="section-intro">
+      The NL2SQL engine accepts a plain English question, uses an LLM agent to call metadata tools,
+      assembles precise schema context, generates SQL, validates it, executes it, and returns structured results —
+      all without any hardcoded table knowledge.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">01</div>
+        <div class="flow-title">NL Query</div>
+        <div class="flow-sub">User input</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-step">
+        <div class="flow-num">02</div>
+        <div class="flow-title">View</div>
+        <div class="flow-sub">REST / CLI / SDK</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-step">
+        <div class="flow-num">03</div>
+        <div class="flow-title">Controller</div>
+        <div class="flow-sub">Orchestrate pipeline</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-step">
+        <div class="flow-num">04</div>
+        <div class="flow-title">Tool calls</div>
+        <div class="flow-sub">LLM picks tools</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-step">
+        <div class="flow-num">05</div>
+        <div class="flow-title">Model</div>
+        <div class="flow-sub">Metadata + DB</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-step">
+        <div class="flow-num">06</div>
+        <div class="flow-title">SQL gen</div>
+        <div class="flow-sub">Context → SQL</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-step">
+        <div class="flow-num">07</div>
+        <div class="flow-title">Execute</div>
+        <div class="flow-sub">Validate + run</div>
+      </div>
+      <div class="flow-arrow">›</div>
+      <div class="flow-step">
+        <div class="flow-num">08</div>
+        <div class="flow-title">Response</div>
+        <div class="flow-sub">SQL + results</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px;">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-icon icon-t">M</div>
+          <div>
+            <h3 style="margin-bottom:4px;">Metadata layer</h3>
+            <p>The source of truth. Stores table descriptions, column types, FK relationships, enum values, and vector embeddings for semantic search. Never queries a live DB in the hot path.</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-icon icon-v">A</div>
+          <div>
+            <h3 style="margin-bottom:4px;">LLM agent loop</h3>
+            <p>The controller drives a multi-turn tool-calling loop. The LLM picks which metadata tools to call, receives results, and iterates until it has enough context to generate accurate SQL.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- MVC -->
+  <section id="mvc">
+    <div class="section-label">02 — Architecture</div>
+    <h2>MVC structure</h2>
+    <p class="section-intro">
+      Every request travels View → Controller → Model and back. No layer reaches over another.
+      The View never imports from Model. The Model never calls the LLM. The Controller owns all logic.
+    </p>
+
+    <div class="mvc-grid">
+      <!-- VIEW -->
+      <div class="mvc-col mvc-v">
+        <div class="mvc-head">
+          <div class="mvc-dot"></div>
+          <div>
+            <div class="mvc-title">View</div>
+            <div class="mvc-sub">view/ — all entry points</div>
+          </div>
+        </div>
+        <div class="mvc-body">
+          <div class="mvc-item">
+            <div class="mvc-item-name">routes.py</div>
+            <div class="mvc-item-desc">FastAPI router, /query /explain /health</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">middleware.py</div>
+            <div class="mvc-item-desc">Auth, rate limiting, request logging</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">shell.py</div>
+            <div class="mvc-item-desc">typer CLI for local use</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">client.py</div>
+            <div class="mvc-item-desc">Python SDK wrapper</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">request.py</div>
+            <div class="mvc-item-desc">QueryRequest Pydantic model</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">response.py</div>
+            <div class="mvc-item-desc">QueryResponse — SQL + results + trace</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTROLLER -->
+      <div class="mvc-col mvc-c">
+        <div class="mvc-head">
+          <div class="mvc-dot"></div>
+          <div>
+            <div class="mvc-title">Controller</div>
+            <div class="mvc-sub">controller/ — all orchestration</div>
+          </div>
+        </div>
+        <div class="mvc-body">
+          <div class="mvc-item">
+            <div class="mvc-item-name">query_controller.py</div>
+            <div class="mvc-item-desc">Main entry, ties all steps together</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">intent_parser.py</div>
+            <div class="mvc-item-desc">NL → structured intent extraction</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">tool_orchestrator.py</div>
+            <div class="mvc-item-desc">Drives LLM tool-calling loop</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">sql_generator.py</div>
+            <div class="mvc-item-desc">Builds prompt + calls LLM → SQL</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">sql_validator.py</div>
+            <div class="mvc-item-desc">Syntax check + safety guard</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">result_formatter.py</div>
+            <div class="mvc-item-desc">Shapes raw rows into response</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODEL -->
+      <div class="mvc-col mvc-m">
+        <div class="mvc-head">
+          <div class="mvc-dot"></div>
+          <div>
+            <div class="mvc-title">Model</div>
+            <div class="mvc-sub">model/ — data + metadata</div>
+          </div>
+        </div>
+        <div class="mvc-body">
+          <div class="mvc-item">
+            <div class="mvc-item-name">table_registry.py</div>
+            <div class="mvc-item-desc">TableMeta, ColumnMeta dataclasses + CRUD</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">graph.py</div>
+            <div class="mvc-item-desc">NetworkX FK graph + join path finder</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">index.py</div>
+            <div class="mvc-item-desc">FAISS vector index builder + search</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">store.py</div>
+            <div class="mvc-item-desc">Distinct values per column, cached</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">log.py</div>
+            <div class="mvc-item-desc">Stores (nl, sql, score) for few-shot</div>
+          </div>
+          <div class="mvc-item">
+            <div class="mvc-item-name">connector.py</div>
+            <div class="mvc-item-desc">SQLAlchemy engine + execute()</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- FOLDER STRUCTURE -->
+  <section id="structure">
+    <div class="section-label">03 — File system</div>
+    <h2>Full folder structure</h2>
+    <p class="section-intro">
+      One directory per MVC layer plus a <code style="font-family:var(--font-mono);font-size:13px;color:var(--accent-t)">tools/</code> directory for all LLM-callable functions.
+      Each file has exactly one responsibility.
+    </p>
+
+    <div class="tree">
+<span class="dir">nl2sql/</span>
+├── <span class="dir">view/</span>                           <span class="cm"># View layer — all entry points</span>
+│   ├── <span class="dir">api/</span>
+│   │   ├── <span class="file-t">routes.py</span>              <span class="cm"># FastAPI router</span>
+│   │   └── <span class="file-t">middleware.py</span>          <span class="cm"># Auth, rate limiting</span>
+│   ├── <span class="dir">cli/</span>
+│   │   └── <span class="file-t">shell.py</span>               <span class="cm"># typer CLI</span>
+│   ├── <span class="dir">sdk/</span>
+│   │   └── <span class="file-t">client.py</span>              <span class="cm"># Python SDK: nl2sql.query(text)</span>
+│   └── <span class="dir">schemas/</span>
+│       ├── <span class="file-t">request.py</span>             <span class="cm"># QueryRequest(nl_query, db_id, opts)</span>
+│       └── <span class="file-t">response.py</span>            <span class="cm"># QueryResponse(sql, rows, trace, error)</span>
+│
+├── <span class="dir">controller/</span>                    <span class="cm"># Controller layer — all logic</span>
+│   ├── <span class="file-v">query_controller.py</span>        <span class="cm"># Main pipeline entry point</span>
+│   ├── <span class="file-v">intent_parser.py</span>           <span class="cm"># NL → structured intent</span>
+│   ├── <span class="file-v">tool_orchestrator.py</span>       <span class="cm"># Drives LLM tool-call loop</span>
+│   ├── <span class="file-v">sql_generator.py</span>           <span class="cm"># Prompt builder + LLM caller</span>
+│   ├── <span class="file-v">sql_validator.py</span>           <span class="cm"># Syntax + safety check</span>
+│   └── <span class="file-v">result_formatter.py</span>        <span class="cm"># Rows → response shape</span>
+│
+├── <span class="dir">model/</span>                         <span class="cm"># Model layer — data + metadata</span>
+│   ├── <span class="dir">registry/</span>
+│   │   ├── <span class="file-a">table_registry.py</span>      <span class="cm"># TableMeta, ColumnMeta + CRUD</span>
+│   │   └── <span class="file-a">loader.py</span>              <span class="cm"># DB introspection + sync</span>
+│   ├── <span class="dir">relationships/</span>
+│   │   └── <span class="file-a">graph.py</span>               <span class="cm"># NetworkX FK graph + join paths</span>
+│   ├── <span class="dir">embeddings/</span>
+│   │   ├── <span class="file-a">index.py</span>               <span class="cm"># FAISS index build + search</span>
+│   │   └── <span class="file-a">encoder.py</span>             <span class="cm"># sentence-transformers wrapper</span>
+│   ├── <span class="dir">value_index/</span>
+│   │   └── <span class="file-a">store.py</span>               <span class="cm"># Distinct values per col, cached</span>
+│   ├── <span class="dir">query_log/</span>
+│   │   └── <span class="file-a">log.py</span>                 <span class="cm"># (nl, sql, score) few-shot store</span>
+│   ├── <span class="dir">db/</span>
+│   │   ├── <span class="file-a">connector.py</span>           <span class="cm"># SQLAlchemy engine + execute()</span>
+│   │   └── <span class="file-a">dialects.py</span>            <span class="cm"># Postgres / MySQL / BigQuery</span>
+│   └── <span class="file-a">facade.py</span>                  <span class="cm"># Single interface for controller</span>
+│
+├── <span class="dir">tools/</span>                         <span class="cm"># LLM-callable tool functions</span>
+│   ├── <span class="file-p">find_tables.py</span>             <span class="cm"># Semantic table search</span>
+│   ├── <span class="file-p">get_schema.py</span>              <span class="cm"># Column + type lookup</span>
+│   ├── <span class="file-p">get_relationships.py</span>       <span class="cm"># FK + join path finder</span>
+│   ├── <span class="file-p">get_sample_values.py</span>       <span class="cm"># Enum / distinct value resolver</span>
+│   ├── <span class="file-p">get_examples.py</span>            <span class="cm"># Few-shot example retrieval</span>
+│   └── <span class="file-p">validate_sql.py</span>            <span class="cm"># Dry-run SQL check</span>
+│
+├── <span class="dir">config/</span>
+│   ├── settings.py                <span class="cm"># Pydantic BaseSettings (env vars)</span>
+│   ├── metadata.yaml              <span class="cm"># Manual table/col descriptions</span>
+│   └── glossary.yaml             <span class="cm"># Business terms → SQL patterns</span>
+│
+├── <span class="dir">tests/</span>
+│   ├── <span class="dir">unit/</span>                      <span class="cm"># Per-class unit tests</span>
+│   ├── <span class="dir">integration/</span>               <span class="cm"># Full pipeline with test DB</span>
+│   └── <span class="dir">golden/</span>                    <span class="cm"># NL → expected SQL golden set</span>
+│
+├── main.py                        <span class="cm"># Uvicorn startup</span>
+└── requirements.txt
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- TOOLS -->
+  <section id="tools">
+    <div class="section-label">04 — Tool definitions</div>
+    <h2>The 6 LLM tool calls</h2>
+    <p class="section-intro">
+      These are the only functions the LLM can invoke. Every tool takes primitive types (strings, lists of strings)
+      so they serialize cleanly as Anthropic tool schemas. The controller dispatches them; the model layer executes them.
+    </p>
+
+    <div class="tool-grid">
+      <div class="tool-card">
+        <div class="tool-name">find_relevant_tables</div>
+        <div class="tool-sig">(query: str, top_k: int = 5)<br>→ list[TableMatch]</div>
+        <div class="tool-desc">Semantic similarity search over table description embeddings. Returns the 3–5 most relevant tables for this query. This is always the first tool call.</div>
+        <div class="tool-when">Always called first</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">get_table_schema</div>
+        <div class="tool-sig">(table_names: list[str])<br>→ SchemaContext</div>
+        <div class="tool-desc">Returns column names, data types, nullability, PK/FK flags, and business descriptions for each requested table. Core input for SQL generation.</div>
+        <div class="tool-when">Called after find_relevant_tables</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">get_table_relationships</div>
+        <div class="tool-sig">(table_names: list[str])<br>→ list[Relationship]</div>
+        <div class="tool-desc">Returns FK edges, join keys, cardinality (1:N, M:N), and bridge tables between the specified tables. Critical for multi-table queries.</div>
+        <div class="tool-when">Called in parallel with get_schema</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">get_sample_values</div>
+        <div class="tool-sig">(table: str, column: str)<br>→ list[str]</div>
+        <div class="tool-desc">Returns up to 20 distinct values for a column. Resolves enum mismatches — e.g. user says "completed" but DB stores "COMPLETED". Essential for WHERE clauses.</div>
+        <div class="tool-when">Called when column looks like enum/status</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">get_query_examples</div>
+        <div class="tool-sig">(query: str, top_k: int = 3)<br>→ list[Example]</div>
+        <div class="tool-desc">Retrieves the most similar past (NL, SQL) pairs from the query log. Used for few-shot prompting — dramatically improves accuracy on repeated query patterns.</div>
+        <div class="tool-when">Called on complex or ambiguous queries</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-name">validate_sql</div>
+        <div class="tool-sig">(sql: str, db_id: str)<br>→ ValidationResult</div>
+        <div class="tool-desc">Dry-runs the SQL with EXPLAIN / LIMIT 0 against the target DB. Returns syntax errors, unknown column names, or permission issues before real execution.</div>
+        <div class="tool-when">Always called before execute()</div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- PHASES -->
+  <section id="phases">
+    <div class="section-label">05 — Build plan</div>
+    <h2>7 build phases</h2>
+    <p class="section-intro">
+      Build the Model first, then Controller, then View. Never wire up HTTP before the pipeline
+      produces correct SQL — regressions hide behind HTTP error codes. Test each phase with
+      a standalone script before moving to the next.
+    </p>
+
+    <div class="phase-list">
+      <div class="phase-row">
+        <div class="phase-num">1</div>
+        <div>
+          <div class="phase-name">Model — schema introspection</div>
+          <div class="phase-desc">Build the DB connector, TableRegistry, ColumnMeta dataclasses, and the loader that introspects a live database. By end of this phase you can call loader.sync() and get a populated registry.</div>
+        </div>
+        <div class="phase-files">
+          <span class="phase-file">model/db/connector.py</span>
+          <span class="phase-file">model/registry/table_registry.py</span>
+          <span class="phase-file">model/registry/loader.py</span>
+        </div>
+        <div><span class="phase-badge badge-1">Week 1</span></div>
+      </div>
+
+      <div class="phase-row">
+        <div class="phase-num">2</div>
+        <div>
+          <div class="phase-name">Model — embeddings + value index</div>
+          <div class="phase-desc">Build the sentence-transformer encoder, FAISS index builder, and the distinct-value store. By end of this phase find_relevant_tables() works standalone with cosine search.</div>
+        </div>
+        <div class="phase-files">
+          <span class="phase-file">model/embeddings/encoder.py</span>
+          <span class="phase-file">model/embeddings/index.py</span>
+          <span class="phase-file">model/value_index/store.py</span>
+        </div>
+        <div><span class="phase-badge badge-1">Week 1</span></div>
+      </div>
+
+      <div class="phase-row">
+        <div class="phase-num">3</div>
+        <div>
+          <div class="phase-name">Model — relationships + facade</div>
+          <div class="phase-desc">Build the NetworkX FK graph, join-path finder, and the ModelFacade that exposes all model components through a single interface to the controller.</div>
+        </div>
+        <div class="phase-files">
+          <span class="phase-file">model/relationships/graph.py</span>
+          <span class="phase-file">model/facade.py</span>
+        </div>
+        <div><span class="phase-badge badge-2">Week 2</span></div>
+      </div>
+
+      <div class="phase-row">
+        <div class="phase-num">4</div>
+        <div>
+          <div class="phase-name">Tools + controller — first SQL</div>
+          <div class="phase-desc">Implement all 6 tool functions, then wire up ToolOrchestrator, IntentParser, SQLGenerator, and QueryController. By end of this phase you can run a Python script and get SQL back from a natural language question.</div>
+        </div>
+        <div class="phase-files">
+          <span class="phase-file">tools/ (all 6 files)</span>
+          <span class="phase-file">controller/query_controller.py</span>
+          <span class="phase-file">controller/tool_orchestrator.py</span>
+          <span class="phase-file">controller/sql_generator.py</span>
+        </div>
+        <div><span class="phase-badge badge-2">Week 2</span></div>
+      </div>
+
+      <div class="phase-row">
+        <div class="phase-num">5</div>
+        <div>
+          <div class="phase-name">Controller — validation + formatting</div>
+          <div class="phase-desc">Add SQLValidator (blocks DROP, DELETE, TRUNCATE without explicit flag; runs EXPLAIN before execute), ResultFormatter, and structured error handling.</div>
+        </div>
+        <div class="phase-files">
+          <span class="phase-file">controller/sql_validator.py</span>
+          <span class="phase-file">controller/result_formatter.py</span>
+        </div>
+        <div><span class="phase-badge badge-3">Week 3</span></div>
+      </div>
+
+      <div class="phase-row">
+        <div class="phase-num">6</div>
+        <div>
+          <div class="phase-name">View — REST API + CLI + SDK</div>
+          <div class="phase-desc">Wire FastAPI routes to QueryController. Add Pydantic request/response schemas, middleware (auth token header, rate limiting), CLI shell, and Python SDK client.</div>
+        </div>
+        <div class="phase-files">
+          <span class="phase-file">view/api/routes.py</span>
+          <span class="phase-file">view/schemas/</span>
+          <span class="phase-file">view/cli/shell.py</span>
+          <span class="phase-file">view/sdk/client.py</span>
+        </div>
+        <div><span class="phase-badge badge-3">Week 3</span></div>
+      </div>
+
+      <div class="phase-row">
+        <div class="phase-num">7</div>
+        <div>
+          <div class="phase-name">Tests — golden set + accuracy loop</div>
+          <div class="phase-desc">Write 50+ golden (NL, expected SQL) pairs. Build a pytest runner that measures exact-match and execution-match accuracy. Set a ≥85% accuracy gate. Wire into CI. Add query_log persistence so few-shot examples improve accuracy over time.</div>
+        </div>
+        <div class="phase-files">
+          <span class="phase-file">tests/golden/</span>
+          <span class="phase-file">model/query_log/log.py</span>
+          <span class="phase-file">tools/get_examples.py</span>
+        </div>
+        <div><span class="phase-badge badge-4">Week 4</span></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- CODE SAMPLES -->
+  <section id="code">
+    <div class="section-label">06 — Reference implementation</div>
+    <h2>Key code patterns</h2>
+    <p class="section-intro">
+      These are the canonical implementations each class must follow. Copy these patterns exactly —
+      deviating from the interface contracts between layers is the most common source of regressions.
+    </p>
+
+    <!-- QueryController -->
+    <h3>QueryController — the main pipeline</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">controller/query_controller.py</span>
+        <span class="code-lang">Python</span>
+      </div>
+      <pre><span class="kw">class</span> <span class="fn">QueryController</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="nm">self</span>, model: <span class="fn">ModelFacade</span>):
+        <span class="nm">self</span>.model      = model
+        <span class="nm">self</span>.parser     = <span class="fn">IntentParser</span>()
+        <span class="nm">self</span>.orchestrator = <span class="fn">ToolOrchestrator</span>(model)
+        <span class="nm">self</span>.generator  = <span class="fn">SQLGenerator</span>()
+        <span class="nm">self</span>.validator  = <span class="fn">SQLValidator</span>()
+        <span class="nm">self</span>.formatter  = <span class="fn">ResultFormatter</span>()
+
+    <span class="kw">async def</span> <span class="fn">handle</span>(<span class="nm">self</span>, req: <span class="fn">QueryRequest</span>) -> <span class="fn">QueryResponse</span>:
+        <span class="cm"># 1. Parse intent from natural language</span>
+        intent = <span class="kw">await</span> <span class="nm">self</span>.parser.<span class="fn">parse</span>(req.nl_query)
+
+        <span class="cm"># 2. Run metadata tool calls to gather schema context</span>
+        context = <span class="kw">await</span> <span class="nm">self</span>.orchestrator.<span class="fn">gather_context</span>(intent)
+
+        <span class="cm"># 3. Generate SQL from intent + context</span>
+        sql = <span class="kw">await</span> <span class="nm">self</span>.generator.<span class="fn">generate</span>(intent, context)
+
+        <span class="cm"># 4. Validate before touching the DB — no exceptions</span>
+        <span class="nm">self</span>.validator.<span class="fn">check</span>(sql, req.db_id)
+
+        <span class="cm"># 5. Execute against the real database</span>
+        rows = <span class="kw">await</span> <span class="nm">self</span>.model.db.<span class="fn">execute</span>(sql, req.db_id)
+
+        <span class="cm"># 6. Format and return structured response</span>
+        <span class="kw">return</span> <span class="nm">self</span>.formatter.<span class="fn">format</span>(sql, rows, context, intent)</pre>
+    </div>
+
+    <!-- ToolOrchestrator -->
+    <h3>ToolOrchestrator — the agentic loop</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">controller/tool_orchestrator.py</span>
+        <span class="code-lang">Python</span>
+      </div>
+      <pre><span class="nm">MAX_TOOL_ROUNDS</span> = <span class="st">5</span>
+<span class="nm">TOOLS</span> = [find_tables, get_schema, get_relationships,
+         get_sample_values, get_examples]
+
+<span class="kw">class</span> <span class="fn">ToolOrchestrator</span>:
+    <span class="kw">async def</span> <span class="fn">gather_context</span>(<span class="nm">self</span>, intent: <span class="fn">Intent</span>) -> <span class="fn">SchemaContext</span>:
+        messages = [{
+            <span class="st">"role"</span>: <span class="st">"user"</span>,
+            <span class="st">"content"</span>: <span class="fn">build_context_prompt</span>(intent)
+        }]
+
+        <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">MAX_TOOL_ROUNDS</span>):
+            response = <span class="kw">await</span> llm.<span class="fn">call</span>(
+                messages=messages,
+                tools=<span class="nm">TOOLS</span>,
+                model=<span class="st">"claude-sonnet-4-20250514"</span>
+            )
+
+            <span class="cm"># LLM has enough context — stop the loop</span>
+            <span class="kw">if</span> response.stop_reason == <span class="st">"end_turn"</span>:
+                <span class="kw">break</span>
+
+            <span class="cm"># Execute every tool call the LLM requested</span>
+            tool_results = []
+            <span class="kw">for</span> call <span class="kw">in</span> response.tool_calls:
+                result = <span class="kw">await</span> <span class="fn">dispatch</span>(call, <span class="nm">self</span>.model)
+                tool_results.<span class="fn">append</span>({
+                    <span class="st">"tool_call_id"</span>: call.id,
+                    <span class="st">"content"</span>: result
+                })
+
+            messages.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: response.content})
+            messages.<span class="fn">append</span>({<span class="st">"role"</span>: <span class="st">"tool"</span>, <span class="st">"content"</span>: tool_results})
+
+        <span class="kw">return</span> <span class="fn">extract_context</span>(messages)</pre>
+    </div>
+
+    <!-- ModelFacade -->
+    <h3>ModelFacade — single interface for the controller</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">model/facade.py</span>
+        <span class="code-lang">Python</span>
+      </div>
+      <pre><span class="kw">class</span> <span class="fn">ModelFacade</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="nm">self</span>, settings: <span class="fn">Settings</span>):
+        <span class="nm">self</span>.registry    = <span class="fn">TableRegistry</span>(settings.db_url)
+        <span class="nm">self</span>.graph       = <span class="fn">RelationshipGraph</span>(settings.db_url)
+        <span class="nm">self</span>.embeddings  = <span class="fn">EmbeddingIndex</span>()
+        <span class="nm">self</span>.value_index = <span class="fn">ValueStore</span>(settings.db_url)
+        <span class="nm">self</span>.query_log   = <span class="fn">QueryLog</span>(settings.log_db_url)
+        <span class="nm">self</span>.db          = <span class="fn">DatabaseConnector</span>(settings.db_url)
+
+    <span class="kw">async def</span> <span class="fn">find_tables</span>(<span class="nm">self</span>, query: str, top_k: int = <span class="st">5</span>):
+        <span class="kw">return</span> <span class="nm">self</span>.embeddings.<span class="fn">search</span>(query, top_k)
+
+    <span class="kw">async def</span> <span class="fn">get_schema</span>(<span class="nm">self</span>, tables: list[str]):
+        <span class="kw">return</span> <span class="nm">self</span>.registry.<span class="fn">get_columns</span>(tables)
+
+    <span class="kw">async def</span> <span class="fn">get_relationships</span>(<span class="nm">self</span>, tables: list[str]):
+        <span class="kw">return</span> <span class="nm">self</span>.graph.<span class="fn">get_paths</span>(tables)
+
+    <span class="kw">async def</span> <span class="fn">get_sample_values</span>(<span class="nm">self</span>, table: str, col: str):
+        <span class="kw">return</span> <span class="nm">self</span>.value_index.<span class="fn">get</span>(table, col)</pre>
+    </div>
+
+    <!-- FastAPI routes -->
+    <h3>View — FastAPI routes</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">view/api/routes.py</span>
+        <span class="code-lang">Python</span>
+      </div>
+      <pre>router = <span class="fn">APIRouter</span>()
+
+<span class="dc">@router.post</span>(<span class="st">"/query"</span>, response_model=<span class="fn">QueryResponse</span>)
+<span class="kw">async def</span> <span class="fn">query</span>(
+    req: <span class="fn">QueryRequest</span>,
+    ctrl: <span class="fn">QueryController</span> = <span class="fn">Depends</span>(get_controller)
+):
+    <span class="kw">try</span>:
+        <span class="kw">return await</span> ctrl.<span class="fn">handle</span>(req)
+    <span class="kw">except</span> <span class="fn">SQLValidationError</span> <span class="kw">as</span> e:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(<span class="st">422</span>, detail=<span class="fn">str</span>(e))
+    <span class="kw">except</span> <span class="fn">UnsafeQueryError</span> <span class="kw">as</span> e:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(<span class="st">403</span>, detail=<span class="fn">str</span>(e))
+    <span class="kw">except</span> <span class="fn">Exception</span>:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(<span class="st">500</span>, detail=<span class="st">"Query pipeline failed"</span>)
+
+<span class="cm"># View never imports from model/ — always through controller</span></pre>
+    </div>
+
+    <!-- Metadata YAML -->
+    <h3>Metadata config — manual overrides</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">config/metadata.yaml</span>
+        <span class="code-lang">YAML</span>
+      </div>
+      <pre>tables:
+  orders:
+    description: <span class="st">"Customer purchase transactions"</span>
+    domain_tags: [sales, finance]
+    columns:
+      status:
+        description: <span class="st">"Current lifecycle state of the order"</span>
+        synonyms: [order_state, fulfillment_status]
+      customer_id:
+        description: <span class="st">"FK to customers.id"</span>
+
+  customers:
+    description: <span class="st">"Registered user accounts"</span>
+    domain_tags: [users, crm]
+
+glossary:
+  revenue: <span class="st">"SUM(orders.total_amount) WHERE status = 'completed'"</span>
+  active_users: <span class="st">"COUNT(DISTINCT user_id) WHERE last_login > NOW()-30d"</span></pre>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- SCENARIOS -->
+  <section id="scenarios">
+    <div class="section-label">07 — Coverage</div>
+    <h2>Query scenarios to handle</h2>
+    <p class="section-intro">
+      These are the scenarios the engine must handle correctly. Build a golden test for each one.
+      The tool call column shows which tool calls the LLM should make for that query type.
+    </p>
+
+    <table class="scenario-table">
+      <thead>
+        <tr>
+          <th>Query type</th>
+          <th>Example</th>
+          <th>Key tool calls</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Single table</td>
+          <td>Show all users created this month</td>
+          <td>find_tables → get_schema</td>
+        </tr>
+        <tr>
+          <td>Multi-table join</td>
+          <td>Orders with customer names and product titles</td>
+          <td>find_tables → get_schema → get_relationships</td>
+        </tr>
+        <tr>
+          <td>Aggregation</td>
+          <td>Total revenue per region last quarter</td>
+          <td>find_tables → get_schema → glossary lookup</td>
+        </tr>
+        <tr>
+          <td>Enum filter</td>
+          <td>Show me completed orders</td>
+          <td>find_tables → get_schema → get_sample_values</td>
+        </tr>
+        <tr>
+          <td>Relative dates</td>
+          <td>Users who signed up in the last 7 days</td>
+          <td>find_tables → get_schema (date format hint)</td>
+        </tr>
+        <tr>
+          <td>Ranking / top-N</td>
+          <td>Top 10 products by sales volume</td>
+          <td>find_tables → get_schema → get_relationships</td>
+        </tr>
+        <tr>
+          <td>Subquery / nested</td>
+          <td>Customers who have never placed an order</td>
+          <td>find_tables → get_relationships → get_schema</td>
+        </tr>
+        <tr>
+          <td>Business term</td>
+          <td>What is our churn rate?</td>
+          <td>glossary.yaml → find_tables → get_schema</td>
+        </tr>
+        <tr>
+          <td>Ambiguous column</td>
+          <td>Show orders by status</td>
+          <td>find_tables → get_schema → get_sample_values</td>
+        </tr>
+        <tr>
+          <td>Cross-schema</td>
+          <td>Match warehouse stock with active orders</td>
+          <td>find_tables (multi-schema) → get_relationships</td>
+        </tr>
+        <tr>
+          <td>Unsafe query</td>
+          <td>Delete all test users</td>
+          <td>SQLValidator blocks → 403 error</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <hr class="divider">
+
+  <!-- RULES -->
+  <section id="rules">
+    <div class="section-label">08 — Contracts</div>
+    <h2>Non-negotiable rules</h2>
+    <p class="section-intro">
+      These are hard architectural contracts. Breaking any of them causes cascading failures
+      that are difficult to debug and expensive to fix later.
+    </p>
+
+    <div class="rules">
+      <div class="rule rule-r">
+        <div class="rule-icon">✗</div>
+        <div class="rule-text"><strong>View never imports from model/.</strong> The view layer may only call methods on the controller. If you find yourself doing <code style="font-family:var(--font-mono);font-size:12px">from model.registry import TableRegistry</code> inside a route file, it is wrong.</div>
+      </div>
+      <div class="rule rule-r">
+        <div class="rule-icon">✗</div>
+        <div class="rule-text"><strong>Model never calls the LLM.</strong> All LLM calls live in the controller layer (ToolOrchestrator, SQLGenerator). The model layer only reads and writes data.</div>
+      </div>
+      <div class="rule rule-r">
+        <div class="rule-icon">✗</div>
+        <div class="rule-text"><strong>SQLValidator must run before every db.execute().</strong> No exceptions, no flags, no bypasses. This is the safety gate that prevents destructive queries. Wire it directly into QueryController, not as an optional step.</div>
+      </div>
+      <div class="rule rule-a">
+        <div class="rule-icon">!</div>
+        <div class="rule-text"><strong>Tool functions take only primitive types.</strong> Every tool argument must be a str, int, float, or list of those. No dataclasses, no Pydantic models. This is required for clean Anthropic tool schema serialization.</div>
+      </div>
+      <div class="rule rule-a">
+        <div class="rule-icon">!</div>
+        <div class="rule-text"><strong>Controller uses ModelFacade, not individual model classes.</strong> The controller imports only <code style="font-family:var(--font-mono);font-size:12px">ModelFacade</code>. This is the seam that lets you swap storage backends without touching controller logic.</div>
+      </div>
+      <div class="rule rule-g">
+        <div class="rule-icon">✓</div>
+        <div class="rule-text"><strong>Every query must be logged.</strong> Write (nl_query, generated_sql, execution_success, latency_ms) to QueryLog after every handle() call, even on failure. This data trains the few-shot retrieval that improves accuracy over time.</div>
+      </div>
+      <div class="rule rule-g">
+        <div class="rule-icon">✓</div>
+        <div class="rule-text"><strong>Metadata sync must be idempotent.</strong> Running <code style="font-family:var(--font-mono);font-size:12px">loader.sync()</code> twice must produce the same result as running it once. New tables get added, removed tables get flagged, descriptions from metadata.yaml override introspected ones.</div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- TECH STACK -->
+  <section id="stack">
+    <div class="section-label">09 — Tech stack</div>
+    <h2>Dependencies</h2>
+    <p class="section-intro">Pin all versions in requirements.txt from day one. Do not use floating versions in production.</p>
+
+    <table class="stack-table">
+      <thead>
+        <tr><th>Package</th><th>Version</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>anthropic</td><td>≥ 0.40</td><td>LLM API client + tool_use support</td></tr>
+        <tr><td>fastapi</td><td>≥ 0.115</td><td>REST API framework (View layer)</td></tr>
+        <tr><td>uvicorn</td><td>≥ 0.32</td><td>ASGI server</td></tr>
+        <tr><td>pydantic</td><td>v2.x</td><td>Request / response / settings validation</td></tr>
+        <tr><td>sqlalchemy</td><td>≥ 2.0</td><td>DB connector + dialect abstraction</td></tr>
+        <tr><td>sentence-transformers</td><td>≥ 3.x</td><td>Table description embeddings</td></tr>
+        <tr><td>faiss-cpu</td><td>≥ 1.8</td><td>Vector similarity index (swap to pgvector later)</td></tr>
+        <tr><td>networkx</td><td>≥ 3.x</td><td>FK relationship graph + path finding</td></tr>
+        <tr><td>typer</td><td>≥ 0.12</td><td>CLI interface (View layer)</td></tr>
+        <tr><td>pyyaml</td><td>≥ 6.x</td><td>metadata.yaml + glossary.yaml parsing</td></tr>
+        <tr><td>redis</td><td>≥ 5.x</td><td>Value index cache + rate limiting</td></tr>
+        <tr><td>pytest + pytest-asyncio</td><td>latest</td><td>Unit + integration + golden tests</td></tr>
+        <tr><td>sqlparse</td><td>≥ 0.5</td><td>SQL tokenizer used in SQLValidator</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-brand">NL2SQL Engine — Project Brief</div>
+    <div class="footer-note">Built for Antigravity · MVC Architecture · Claude claude-sonnet-4-20250514</div>
+  </div>
+
+</div>
+
+<script>
+  const sections = document.querySelectorAll('section[id], div[id]');
+  const navLinks = document.querySelectorAll('nav a');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => {
+          link.classList.remove('active');
+          if (link.getAttribute('href') === '#' + entry.target.id) {
+            link.classList.add('active');
+          }
+        });
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+
+  sections.forEach(s => observer.observe(s));
+
+  navLinks.forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(link.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+</script>
+</body>
+</html>
