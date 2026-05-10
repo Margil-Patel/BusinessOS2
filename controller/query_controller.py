@@ -16,6 +16,7 @@ Pipeline:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -52,17 +53,23 @@ class QueryController:
         self._validator = SQLValidator()
         self._formatter = ResultFormatter()
 
-    async def handle(self, nl_query: str, db_id: str = "default") -> dict[str, Any]:
+    async def handle(self, nl_query: str, history: list[dict[str, str]] | None = None, db_id: str = "default") -> dict[str, Any]:
         """
         Process a natural language query end-to-end.
-
-        Returns a dict matching QueryResponse schema:
-        {sql, rows, columns, row_count, latency_ms, trace, error}
         """
         start = time.monotonic()
         intent = self._parser.parse(nl_query, db_id=db_id)
         sql: str | None = None
         context: Optional[SchemaContext] = None
+
+        # Pre-populate context with tables from history to help resolution of "that", "those", etc.
+        pre_context = SchemaContext()
+        if history:
+            prev_tables = self._extract_tables_from_history(history)
+            for t_name in prev_tables:
+                table = self._model.registry.get(t_name)
+                if table:
+                    pre_context.tables_found.append(table.to_dict())
 
         # ── Safety check before any LLM calls ─────────────────────────────────
         if intent.is_unsafe:
@@ -77,10 +84,10 @@ class QueryController:
         try:
             # ── Step 1: Gather schema context via tool-calling loop ────────────
             logger.info("Gathering context for: %r", nl_query)
-            context = await self._orchestrator.gather_context(intent)
+            context = await self._orchestrator.gather_context(intent, history=history, initial_context=pre_context)
 
             # ── Step 2: Generate SQL ──────────────────────────────────────────
-            sql = await self._generator.generate(intent, context)
+            sql = await self._generator.generate(intent, context, history=history)
 
             # ── Step 3: Validate SQL (MUST run before execute) ────────────────
             self._validator.check(sql, db_id)
@@ -114,13 +121,13 @@ class QueryController:
             await self._log(nl_query, sql or "", False, elapsed, db_id, str(exc))
             return self._formatter.format_error(exc, sql=sql, intent=intent, context=context, latency_ms=elapsed)
 
-    async def explain_only(self, nl_query: str, db_id: str = "default") -> dict[str, Any]:
+    async def explain_only(self, nl_query: str, history: list[dict[str, str]] | None = None, db_id: str = "default") -> dict[str, Any]:
         """
         Return tool trace + SQL without executing. Used by /explain endpoint.
         """
         intent = self._parser.parse(nl_query, db_id=db_id)
-        context = await self._orchestrator.gather_context(intent)
-        sql = await self._generator.generate(intent, context)
+        context = await self._orchestrator.gather_context(intent, history=history)
+        sql = await self._generator.generate(intent, context, history=history)
         return {
             "sql": sql,
             "trace": {
@@ -131,6 +138,23 @@ class QueryController:
                 "schema_context": context.to_prompt_text(),
             },
         }
+
+    def _extract_tables_from_history(self, history: list[dict[str, str]]) -> list[str]:
+        """Extract schema-qualified table names from previous SQL queries in the chat."""
+        tables = []
+        # Look at the last assistant message that might contain SQL
+        for msg in reversed(history):
+            if msg.get("role") == "assistant":
+                content = msg.get("content", "")
+                # Simple regex to find words after FROM or JOIN
+                # Matches schema.table or just table
+                matches = re.findall(r"\b(?:FROM|JOIN)\s+([a-zA-Z0-9_\.]+)\b", content, re.IGNORECASE)
+                for m in matches:
+                    if m.lower() not in ("select", "where", "group", "order", "limit"):
+                        tables.append(m)
+                if tables:
+                    break
+        return list(set(tables))
 
     async def _log(
         self,
