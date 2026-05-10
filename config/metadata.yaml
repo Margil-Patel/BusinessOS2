@@ -1,0 +1,64 @@
+# config/metadata.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# Manual table/column descriptions and overrides.
+# These take precedence over introspected descriptions.
+# Add your own tables here to give the LLM better context.
+# ─────────────────────────────────────────────────────────────────────────────
+
+tables:
+  orders:
+    description: "Customer purchase transactions. Each row is one order placed by a customer."
+    domain_tags: [sales, finance, transactions]
+    columns:
+      status:
+        description: "Current lifecycle state of the order (e.g. pending, processing, completed, cancelled)"
+        synonyms: [order_state, fulfillment_status, order_status]
+      customer_id:
+        description: "Foreign key to customers.id — links this order to the customer who placed it"
+      total_amount:
+        description: "Final monetary value of the order in the default currency"
+        synonyms: [order_value, revenue, amount]
+      created_at:
+        description: "Timestamp when the order was placed"
+        synonyms: [order_date, placed_at, purchase_date]
+
+  customers:
+    description: "Registered user accounts and their profile information."
+    domain_tags: [users, crm, accounts]
+    columns:
+      email:
+        description: "Unique email address used for login and communication"
+      last_login:
+        description: "Most recent login timestamp — used for active user calculations"
+        synonyms: [last_seen, last_active]
+      created_at:
+        description: "Account registration timestamp"
+        synonyms: [signup_date, joined_at]
+
+  products:
+    description: "Catalogue of items available for purchase."
+    domain_tags: [inventory, catalogue, items]
+    columns:
+      category:
+        description: "Product classification or department"
+        synonyms: [product_type, department]
+      price:
+        description: "Current selling price per unit"
+        synonyms: [cost, unit_price]
+
+  order_items:
+    description: "Line items within an order — each row is one product in one order."
+    domain_tags: [sales, transactions]
+    columns:
+      quantity:
+        description: "Number of units of this product in the order line"
+      unit_price:
+        description: "Price per unit at the time of purchase (may differ from products.price)"
+
+# Example: add your own tables below
+# my_table:
+#   description: "What this table stores"
+#   domain_tags: [tag1, tag2]
+#   columns:
+#     my_column:
+#       description: "What this column contains"

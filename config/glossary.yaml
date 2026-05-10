@@ -1,0 +1,50 @@
+# config/glossary.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# Business terms → SQL pattern mappings.
+# When a query contains a business term, the LLM uses this to generate
+# the correct SQL expression rather than guessing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+terms:
+  revenue:
+    definition: "Total completed order value"
+    sql_pattern: "SUM(orders.total_amount) WHERE orders.status = 'completed'"
+    tables: [orders]
+
+  active_users:
+    definition: "Users who logged in within the last 30 days"
+    sql_pattern: "COUNT(DISTINCT customers.id) WHERE customers.last_login > NOW() - INTERVAL '30 days'"
+    tables: [customers]
+
+  churn_rate:
+    definition: "Percentage of customers who stopped purchasing (no order in last 90 days)"
+    sql_pattern: |
+      COUNT(DISTINCT customers.id) FILTER (
+        WHERE customers.id NOT IN (
+          SELECT DISTINCT customer_id FROM orders
+          WHERE orders.created_at > NOW() - INTERVAL '90 days'
+        )
+      ) * 100.0 / COUNT(DISTINCT customers.id)
+    tables: [customers, orders]
+
+  conversion_rate:
+    definition: "Percentage of customers who have placed at least one order"
+    sql_pattern: |
+      COUNT(DISTINCT orders.customer_id) * 100.0 / COUNT(DISTINCT customers.id)
+    tables: [customers, orders]
+
+  average_order_value:
+    definition: "Mean order total across completed orders"
+    sql_pattern: "AVG(orders.total_amount) WHERE orders.status = 'completed'"
+    tables: [orders]
+    synonyms: [aov, avg order value, average basket size]
+
+  top_products:
+    definition: "Products ranked by total sales volume or revenue"
+    sql_pattern: |
+      SELECT p.name, SUM(oi.quantity) as total_sold
+      FROM order_items oi
+      JOIN products p ON p.id = oi.product_id
+      GROUP BY p.id, p.name
+      ORDER BY total_sold DESC
+    tables: [order_items, products]
