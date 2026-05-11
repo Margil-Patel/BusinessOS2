@@ -7,6 +7,7 @@ Blocks destructive statements and runs EXPLAIN dry-run.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 import sqlparse
 from sqlparse.sql import Statement
@@ -81,7 +82,7 @@ class SQLValidator:
                 f"Query must start with SELECT or WITH. Got: {sql[:50]!r}"
             )
 
-    async def explain(self, sql: str, db: "Any") -> None:
+    async def explain(self, sql: str, db: Any) -> None:
         """
         Run EXPLAIN against the DB. Call this after check() for full validation.
         Import db lazily to avoid circular dependency.

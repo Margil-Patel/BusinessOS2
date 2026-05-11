@@ -141,7 +141,7 @@ class IntentParser:
             "how", "many", "is", "are", "have", "has", "for", "of", "in", "on",
             "and", "or", "with", "by", "from", "to", "that", "which", "who",
             "where", "when", "their", "its", "this", "these", "those", "each",
-            "every", "between", "than", "last", "this", "past", "recent",
+            "every", "between", "than", "last", "this", "past", "recent", "give",
         }
         tokens = re.findall(r"\b[a-z][a-z_]{2,}\b", query.lower())
         return [t for t in tokens if t not in stop_words][:10]
