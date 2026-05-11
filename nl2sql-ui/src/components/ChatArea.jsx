@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { api } from '../services/api';
 
 const MessageBubble = ({ msg }) => {
+  const [showSql, setShowSql] = useState(false);
+
   if (msg.role === 'user') {
     return <div className="chat-message message-user">{msg.content}</div>;
   }
@@ -14,12 +16,20 @@ const MessageBubble = ({ msg }) => {
         <div style={{color: 'var(--danger)'}}><strong>Error:</strong> {error}</div>
       ) : (
         <>
-          <div style={{display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.8rem'}}>
-            <span>✓ SQL Generated in {latency_ms?.toFixed(0)}ms</span>
-            {trace?.tables_used?.length > 0 && <span>Tables used: {trace.tables_used.join(', ')}</span>}
+          <div style={{display: 'flex', justifyContent: 'flex-start', alignItems: 'center', marginBottom: '8px'}}>
+            <button 
+              onClick={() => setShowSql(!showSql)}
+              className="sql-toggle-btn"
+            >
+              {showSql ? 'Hide SQL' : 'Show SQL'}
+            </button>
           </div>
           
-          <pre><code>{sql}</code></pre>
+          {showSql && (
+            <pre className="sql-preview">
+              <code>{sql}</code>
+            </pre>
+          )}
           
           {rows && rows.length > 0 ? (
             <div className="data-table-container">

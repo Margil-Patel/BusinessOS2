@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -21,11 +22,11 @@ _EXCLUDED_PATHS = {"/health", "/docs", "/redoc", "/openapi.json"}
 class APIKeyMiddleware(BaseHTTPMiddleware):
     """Validates X-API-Key header on all non-health endpoints."""
 
-    def __init__(self, app: "Any", api_key: str) -> None:
+    def __init__(self, app: Any, api_key: str) -> None:
         super().__init__(app)
         self._api_key = api_key
 
-    async def dispatch(self, request: Request, call_next: "Any") -> Response:
+    async def dispatch(self, request: Request, call_next: Any) -> Response:
         if request.url.path in _EXCLUDED_PATHS:
             return await call_next(request)
 
@@ -41,7 +42,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Logs every request with method, path, status, and latency."""
 
-    async def dispatch(self, request: Request, call_next: "Any") -> Response:
+    async def dispatch(self, request: Request, call_next: Any) -> Response:
         start = time.monotonic()
         response = await call_next(request)
         elapsed = (time.monotonic() - start) * 1000

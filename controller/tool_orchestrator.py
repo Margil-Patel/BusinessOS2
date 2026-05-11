@@ -111,20 +111,18 @@ class SchemaContext:
         return "\n".join(parts)
 
 
-def _build_context_prompt(intent: Intent) -> str:
+def _build_context_prompt_v2() -> str:
     return (
-        f"You are a metadata exploration agent for a SQL database.\n"
-        f"Your job is to gather schema context needed to answer this query:\n\n"
-        f"QUERY: {intent.nl_query}\n\n"
-        f"INTENT ANALYSIS:\n{intent.to_prompt_context()}\n\n"
-        f"Use the available tools to:\n"
-        f"1. Call find_relevant_tables first to identify which tables are needed\n"
-        f"2. Call get_table_schema for those tables to get column details\n"
-        f"3. If the query involves multiple tables, call get_table_relationships\n"
-        f"4. For ANY filter involving a string value (like a name, status, category, or type), call get_sample_values to see the exact casing and spelling used in the database.\n"
-        f"5. If the user mentions a specific value but you don't know which column it belongs to, call search_data_values to scan the database for matching values.\n"
-        f"6. For complex queries, call get_query_examples for few-shot context\n\n"
-        f"When you have enough context to generate accurate SQL, stop calling tools."
+        "You are a metadata exploration agent for a SQL database.\n"
+        "Your job is to gather schema context needed to answer the user's latest query.\n\n"
+        "STEPS:\n"
+        "1. Call find_relevant_tables to identify which tables are needed for the NEW query.\n"
+        "2. Call get_table_schema for those tables to get column details.\n"
+        "3. If the query involves multiple tables, call get_table_relationships.\n"
+        "4. For ANY filter involving a string value, call get_sample_values to confirm casing.\n"
+        "5. If you cannot find a value, call search_data_values.\n"
+        "6. Call validate_sql to verify your final plan before stopping.\n\n"
+        "If you already have enough context from 'ALREADY IN CONTEXT' or previous tool calls, you may stop."
     )
 
 
@@ -149,16 +147,34 @@ class ToolOrchestrator:
         initial_context: SchemaContext | None = None,
     ) -> SchemaContext:
         context = initial_context or SchemaContext()
+        
+        # 1. System instructions
         messages: list[Any] = [
-            {"role": "system", "content": _build_context_prompt(intent)}
+            {"role": "system", "content": _build_context_prompt_v2()}
         ]
 
+        # 2. History (if any)
         if history:
-            # History is passed as [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
-            # We filter it to keep it relevant
-            for msg in history[-10:]:  # Keep last 10 messages for context
-                # Map roles correctly for the LLM
-                messages.append(msg)
+            messages.extend(history[-10:])
+            messages.append({
+                "role": "system", 
+                "content": "The above is history. NOW, focus on the NEW user query below."
+            })
+
+        # 3. Current Query + Intent + Context Hint
+        context_hint = ""
+        if context.tables_found:
+            t_names = [t["qualified_name"] for t in context.tables_found]
+            context_hint = f"\nALREADY IN CONTEXT: {', '.join(t_names)}"
+
+        messages.append({
+            "role": "user",
+            "content": (
+                f"NEW QUERY: {intent.nl_query}\n"
+                f"ANALYSIS: {intent.to_prompt_context()}"
+                f"{context_hint}"
+            )
+        })
 
         max_rounds = self._settings.max_tool_rounds
 
@@ -166,10 +182,8 @@ class ToolOrchestrator:
             context.rounds_used = round_num + 1
             logger.debug("Tool loop round %d/%d", round_num + 1, max_rounds)
 
-            # Force find_relevant_tables on the first round ONLY if we have no history
+            # Allow the LLM to choose tools naturally
             current_tool_choice: Any = "auto"
-            if round_num == 0 and not history:
-                current_tool_choice = {"type": "function", "function": {"name": "find_relevant_tables"}}
 
             try:
                 response = await self._client.chat.completions.create(
