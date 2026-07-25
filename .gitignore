@@ -1,0 +1,92 @@
+# ── Environment Variables & Secrets (CRITICAL) ──
+.env
+.env.*
+!.env.example
+*.env
+
+# ── Python Virtual Environments ──
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ── Python Cache & Build Artifacts ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ── Node.js & Frontend Dependencies ──
+node_modules/
+jspm_packages/
+.npm
+.eslintcache
+.stylelintcache
+.rzls.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ── Frontend Build Outputs ──
+.next/
+out/
+.nuxt/
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+frontend/dist/
+nl2sql-ui/dist/
+nl2sql-ui/node_modules/
+
+# ── Local Databases & Vector Stores ──
+*.db
+*.sqlite
+*.sqlite3
+nl2sql_log.db
+.chroma_nl2sql/
+.nl2sql_value_cache/
+
+# ── Evaluation Reports & Scratch Files ──
+evaluation_report.json
+scratch_*.py
+
+# ── IDE & Operating System Files ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
