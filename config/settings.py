@@ -55,6 +55,16 @@ class Settings(BaseSettings):
     max_tool_rounds: int = Field(default=5, description="Max LLM tool-calling iterations")
     rate_limit: int = Field(default=60, description="Requests per minute per IP")
 
+    # ── Agentic loop ──────────────────────────────────────────────────────────
+    loop_max_iter: int = Field(
+        default=5,
+        description="Max agentic loop iterations per query (hard ceiling: 10)",
+    )
+    loop_max_corrections: int = Field(
+        default=2,
+        description="Max self-correction attempts per SQL emit",
+    )
+
     # ── ChromaDB vector store ─────────────────────────────────────────────────
     chroma_persist_dir: str = Field(
         default="./.chroma_nl2sql",

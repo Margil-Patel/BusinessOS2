@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +36,25 @@ if TYPE_CHECKING:
     from model.facade import ModelFacade
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_business_entities(reasoning_analysis: str | None) -> list[str]:
+    if not reasoning_analysis:
+        return []
+    entities = []
+    for line in reasoning_analysis.splitlines():
+        if line.strip().startswith("Business Entities:"):
+            # Extract content after ":"
+            val = line.split(":", 1)[1].strip()
+            if val and val.lower() not in ("none", "none.", "n/a"):
+                # Split by comma
+                parts = [p.strip() for p in val.split(",")]
+                for p in parts:
+                    p_clean = p.rstrip(".")
+                    if p_clean and p_clean.lower() not in ("none", "none.", "n/a"):
+                        entities.append(p_clean)
+    return entities
+
 
 # All tool schemas exposed to the LLM
 TOOL_SCHEMAS = [
@@ -119,10 +139,10 @@ def _build_context_prompt_v2() -> str:
         "1. Call find_relevant_tables to identify which tables are needed for the NEW query.\n"
         "2. Call get_table_schema for those tables to get column details.\n"
         "3. If the query involves multiple tables, call get_table_relationships.\n"
-        "4. For ANY filter involving a string value, call get_sample_values to confirm casing.\n"
-        "5. If you cannot find a value, call search_data_values.\n"
+        "4. MANDATORY: For ANY filter involving a string value (e.g., 'glossy', 'active'), you MUST call get_sample_values or search_data_values to confirm the exact casing in the database.\n"
+        "5. If the query contains a specific name or value (like 'Bhavesh Patel') and semantic search doesn't find the table, call search_data_values (without specifying the tables parameter) to find the table and column containing that value.\n"
         "6. Call validate_sql to verify your final plan before stopping.\n\n"
-        "If you already have enough context from 'ALREADY IN CONTEXT' or previous tool calls, you may stop."
+        "If you already have enough context from 'ALREADY IN CONTEXT' or previous tool calls (including confirmed sample values), you may stop."
     )
 
 
@@ -145,13 +165,42 @@ class ToolOrchestrator:
         intent: Intent, 
         history: list[dict[str, str]] | None = None,
         initial_context: SchemaContext | None = None,
+        reasoning_analysis: str | None = None,
     ) -> SchemaContext:
         context = initial_context or SchemaContext()
+
+        # Pre-populate context with business entities if present in reasoning analysis
+        entities = _extract_business_entities(reasoning_analysis)
+        if entities:
+            for entity in entities:
+                logger.info("[ToolOrchestrator] Pre-populating context for business entity: %s", entity)
+                # Search data values
+                search_results = await self._dispatch("search_data_values", {"keyword": entity})
+                if isinstance(search_results, list) and search_results:
+                    self._accumulate(context, "search_data_values", {"keyword": entity}, search_results)
+                    # Automatically fetch schemas for matched tables
+                    matched_tables = list({item["table"] for item in search_results})
+                    if matched_tables:
+                        schema_results = await self._dispatch("get_table_schema", {"table_names": matched_tables})
+                        if isinstance(schema_results, dict) and schema_results:
+                            self._accumulate(context, "get_table_schema", {"table_names": matched_tables}, schema_results)
         
         # 1. System instructions
         messages: list[Any] = [
             {"role": "system", "content": _build_context_prompt_v2()}
         ]
+
+        if reasoning_analysis:
+            messages.append({
+                "role": "system",
+                "content": (
+                    "=== SENIOR ANALYST REASONING ===\n"
+                    f"{reasoning_analysis}\n\n"
+                    "Use the above token classifications and entities to guide your schema exploration tool calls. "
+                    "Remember: do NOT search metadata for terms classified as Ignored Conversational Terms. "
+                    "Focus your metadata search and search_data_values on Business Entities and Candidate Schema Terms."
+                )
+            })
 
         # 2. History (if any)
         if history:
@@ -281,6 +330,17 @@ class ToolOrchestrator:
                     ctx.sample_values[key] = []
                 if item['matched_value'] not in ctx.sample_values[key]:
                     ctx.sample_values[key].append(item['matched_value'])
+                
+                # Also add matched table to tables_found so it appears in prompt's RELEVANT TABLES
+                existing = {t["qualified_name"] for t in ctx.tables_found}
+                if item['table'] not in existing:
+                    t_info = self._model.registry.get(item['table'])
+                    if t_info:
+                        ctx.tables_found.append({
+                            "qualified_name": t_info.qualified_name,
+                            "description": t_info.description,
+                            "column_names": [c.name for c in t_info.columns]
+                        })
         elif fn_name == "get_query_examples" and isinstance(result, list):
             ctx.examples = result
 

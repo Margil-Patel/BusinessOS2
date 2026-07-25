@@ -42,7 +42,7 @@ class SQLValidator:
     2. EXPLAIN dry-run — catches column/table errors before execution
     """
 
-    def check(self, sql: str, db_id: str = "default") -> None:
+    def check(self, sql: str, db_id: str = "default", registry: Any = None) -> None:
         """
         Raises SQLValidationError or UnsafeQueryError if the SQL is invalid.
         Silent return = safe to execute.
@@ -53,6 +53,8 @@ class SQLValidator:
         self._check_injection(sql)
         self._check_keywords(sql)
         self._check_syntax(sql)
+        if registry:
+            self._check_tables_exist(sql, registry)
 
     def _check_injection(self, sql: str) -> None:
         for pattern in _INJECTION_PATTERNS:
@@ -81,6 +83,36 @@ class SQLValidator:
             raise SQLValidationError(
                 f"Query must start with SELECT or WITH. Got: {sql[:50]!r}"
             )
+
+    def _check_tables_exist(self, sql: str, registry: Any) -> None:
+        """Verify that all tables referenced in the SQL actually exist in the registry."""
+        # Strip comments
+        sql_clean = re.sub(r"--.*?\n", "", sql)
+        sql_clean = re.sub(r"/\*.*?\*/", "", sql_clean, flags=re.DOTALL)
+
+        # Extract CTE names
+        cte_names = set()
+        with_match = re.search(r"\bWITH\s+([a-zA-Z0-9_]+)\s+AS", sql_clean, re.IGNORECASE)
+        if with_match:
+            cte_names.add(with_match.group(1).lower())
+            # Find additional CTEs separated by commas
+            extra_ctes = re.findall(r",\s*([a-zA-Z0-9_]+)\s+AS\b", sql_clean, re.IGNORECASE)
+            for extra in extra_ctes:
+                cte_names.add(extra.lower())
+
+        matches = re.findall(
+            r"\b(?:FROM|JOIN)\s+([a-zA-Z0-9_.\"\u0060]+)\b",
+            sql_clean,
+            re.IGNORECASE,
+        )
+        for m in matches:
+            name = m.replace('"', '').replace('`', '').strip()
+            if name.lower() in ("select", "where", "group", "order", "limit", "values", "join", "from"):
+                continue
+            if name.lower() in cte_names:
+                continue
+            if not (registry.get(name) or registry.get_by_name(name)):
+                raise SQLValidationError(f"Table '{name}' does not exist in the database.")
 
     async def explain(self, sql: str, db: Any) -> None:
         """

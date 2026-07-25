@@ -33,6 +33,24 @@ class QueryResponse(BaseModel):
     trace: QueryTrace = Field(default_factory=QueryTrace)
     error: str | None = Field(default=None, description="Error message if query failed")
 
+    # ── Full rows for expandable column view ──────────────────────────────────
+    full_rows: list[dict[str, Any]] = Field(default_factory=list, description="Full result rows with all columns")
+    full_columns: list[str] = Field(default_factory=list, description="Full column names")
+
+    # ── Agentic loop metadata ─────────────────────────────────────────────────
+    confidence: float = Field(
+        default=0.0,
+        description="Loop confidence score (0.0–1.0). Lower = more retries / corrections needed.",
+    )
+    iterations_used: int = Field(
+        default=1,
+        description="Number of agentic loop iterations consumed",
+    )
+    loop_errors: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Errors encountered during the loop (validation, runtime, etc.)",
+    )
+
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "QueryResponse":
         trace_data = d.get("trace", {})
@@ -51,6 +69,11 @@ class QueryResponse(BaseModel):
             latency_ms=d.get("latency_ms", 0.0),
             trace=trace,
             error=d.get("error"),
+            confidence=d.get("confidence", 0.0),
+            iterations_used=d.get("iterations_used", 1),
+            loop_errors=d.get("loop_errors", []),
+            full_rows=d.get("full_rows", []),
+            full_columns=d.get("full_columns", []),
         )
 
 

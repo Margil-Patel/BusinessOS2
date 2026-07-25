@@ -1,59 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { api } from '../services/api';
+import ResponseCard from './ResponseCard';
 
-const MessageBubble = ({ msg }) => {
-  const [showSql, setShowSql] = useState(false);
-
-  if (msg.role === 'user') {
-    return <div className="chat-message message-user">{msg.content}</div>;
-  }
-
-  const { sql, rows, columns, error, trace, latency_ms } = msg.data;
-
-  return (
-    <div className="chat-message message-ai ai-bubble">
-      {error ? (
-        <div style={{color: 'var(--danger)'}}><strong>Error:</strong> {error}</div>
-      ) : (
-        <>
-          <div style={{display: 'flex', justifyContent: 'flex-start', alignItems: 'center', marginBottom: '8px'}}>
-            <button 
-              onClick={() => setShowSql(!showSql)}
-              className="sql-toggle-btn"
-            >
-              {showSql ? 'Hide SQL' : 'Show SQL'}
-            </button>
-          </div>
-          
-          {showSql && (
-            <pre className="sql-preview">
-              <code>{sql}</code>
-            </pre>
-          )}
-          
-          {rows && rows.length > 0 ? (
-            <div className="data-table-container">
-              <table>
-                <thead>
-                  <tr>{columns.map(col => <th key={col}>{col}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, i) => (
-                    <tr key={i}>
-                      {columns.map(col => <td key={col}>{row[col]?.toString() || 'null'}</td>)}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div style={{color: 'var(--text-secondary)', fontStyle: 'italic'}}>No rows returned.</div>
-          )}
-        </>
-      )}
-    </div>
-  );
-};
 
 const ChatArea = ({ messages, setMessages, explainMode, setExplainMode }) => {
   const [input, setInput] = useState('');
@@ -107,7 +55,7 @@ const ChatArea = ({ messages, setMessages, explainMode, setExplainMode }) => {
             <p style={{marginTop: 8}}>e.g. "Show me the top 10 customers by revenue"</p>
           </div>
         ) : (
-          messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)
+          messages.map((msg, i) => <ResponseCard key={i} msg={msg} />)
         )}
         {loading && <div className="chat-message message-ai" style={{color: 'var(--text-secondary)'}}>Generating SQL...</div>}
         <div ref={endRef} />

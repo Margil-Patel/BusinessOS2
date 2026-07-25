@@ -8,7 +8,7 @@ async def test():
     await model.startup()
     await model.sync_schema()
     
-    results = await model.find_tables("farmers")
+    results = await model.find_tables("Show details of Bhavesh Patel.")
     print("Search results:")
     for r in results:
         print(f"Table: {r['qualified_name']}")

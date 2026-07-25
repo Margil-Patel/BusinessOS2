@@ -48,3 +48,13 @@ terms:
       GROUP BY p.id, p.name
       ORDER BY total_sold DESC
     tables: [order_items, products]
+
+  glossy:
+    definition: "A finish type for tiles"
+    sql_pattern: "finish_type ILIKE 'Glossy'"
+    synonyms: [gloss, glossy finish, glossy types]
+
+  matte:
+    definition: "A dull, non-shiny finish type for tiles"
+    sql_pattern: "finish_type ILIKE 'Matte'"
+    synonyms: [mat, mat finish, non-shiny]

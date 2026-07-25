@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NL2SQL — Agentic Loop Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07070e;
+  --s1:#0c0c1a;
+  --s2:#111124;
+  --s3:#16162e;
+  --b1:#1c1c38;
+  --b2:#262650;
+  --b3:#303068;
+  --text:#dde0ff;
+  --muted:#7070aa;
+  --dim:#35355a;
+  --c1:#4f6ef7;
+  --c1b:#3a52d4;
+  --c1l:#8099ff;
+  --c1g:rgba(79,110,247,0.12);
+  --c2:#00dba8;
+  --c2g:rgba(0,219,168,0.1);
+  --c3:#ff5f7e;
+  --c3g:rgba(255,95,126,0.1);
+  --c4:#ffb347;
+  --c4g:rgba(255,179,71,0.1);
+  --c5:#b57bff;
+  --c5g:rgba(181,123,255,0.1);
+  --head:'Outfit',sans-serif;
+  --mono:'Fira Code',monospace;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--head);
+  font-size:14px;
+  line-height:1.6;
+  overflow-x:hidden;
+}
+
+/* noise grain overlay */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:9999;opacity:0.5;
+}
+
+/* ── TOPBAR ── */
+.topbar{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  height:56px;
+  display:flex;align-items:center;
+  padding:0 28px;gap:24px;
+  background:rgba(7,7,14,0.88);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--b1);
+}
+.logo{
+  display:flex;align-items:center;gap:10px;
+  font-size:16px;font-weight:700;
+  letter-spacing:-0.02em;color:#fff;
+}
+.logo-chip{
+  background:var(--c1);
+  width:28px;height:28px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;font-family:var(--mono);
+}
+.logo em{font-style:normal;color:var(--c1l);}
+.top-nav{display:flex;gap:2px;margin-left:auto;}
+.tnav{
+  font-size:12px;font-family:var(--mono);color:var(--muted);
+  padding:6px 14px;border-radius:7px;cursor:pointer;
+  border:1px solid transparent;transition:all 0.15s;
+}
+.tnav:hover{color:var(--text);background:var(--s2);}
+.tnav.on{color:var(--c1l);background:var(--c1g);border-color:rgba(79,110,247,0.25);}
+.badge{
+  display:inline-flex;align-items:center;
+  background:var(--c3);color:#fff;
+  font-size:9px;font-family:var(--mono);font-weight:600;
+  padding:2px 7px;border-radius:20px;margin-left:6px;
+  vertical-align:middle;letter-spacing:0.04em;
+}
+
+/* ── MAIN SCROLL ── */
+main{padding-top:56px;}
+.page{display:none;min-height:calc(100vh - 56px);}
+.page.on{display:block;}
+
+/* ── HERO ── */
+.hero{
+  padding:72px 48px 60px;
+  position:relative;
+  border-bottom:1px solid var(--b1);
+  overflow:hidden;
+}
+.hero-glow{
+  position:absolute;
+  top:-80px;right:-80px;
+  width:500px;height:500px;
+  background:radial-gradient(circle,rgba(79,110,247,0.18) 0%,transparent 70%);
+  pointer-events:none;
+}
+.hero-glow2{
+  position:absolute;
+  bottom:-60px;left:30%;
+  width:400px;height:300px;
+  background:radial-gradient(circle,rgba(0,219,168,0.09) 0%,transparent 70%);
+  pointer-events:none;
+}
+.htag{
+  font-family:var(--mono);font-size:10px;
+  color:var(--c2);letter-spacing:0.14em;text-transform:uppercase;
+  margin-bottom:16px;
+  display:flex;align-items:center;gap:10px;
+}
+.htag::before{content:'';display:inline-block;width:20px;height:1px;background:var(--c2);}
+h1{
+  font-size:clamp(40px,5.5vw,64px);
+  font-weight:800;letter-spacing:-0.035em;
+  line-height:1.05;
+  color:#fff;margin-bottom:20px;
+}
+h1 .hl{
+  background:linear-gradient(135deg,var(--c1l),var(--c2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero-desc{
+  font-size:16px;color:var(--muted);max-width:560px;
+  line-height:1.65;margin-bottom:36px;font-weight:300;
+}
+.hero-pills{display:flex;flex-wrap:wrap;gap:8px;}
+.hpill{
+  font-family:var(--mono);font-size:11px;
+  padding:5px 13px;border-radius:20px;
+  border:1px solid var(--b2);color:var(--muted);
+  background:var(--s1);
+}
+
+/* ── SECTION ── */
+.sec{padding:48px;}
+.sec-hd{margin-bottom:32px;}
+.sec-tag{font-family:var(--mono);font-size:9px;color:var(--c1l);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:8px;}
+.sec-title{font-size:26px;font-weight:700;letter-spacing:-0.025em;color:#fff;line-height:1.2;}
+.sec-sub{font-size:13px;color:var(--muted);margin-top:6px;max-width:600px;line-height:1.6;font-weight:300;}
+
+/* ── AGENTIC LOOP DIAGRAM ── */
+.loop-diagram{
+  display:grid;
+  grid-template-columns:1fr 520px;
+  gap:24px;
+  align-items:start;
+}
+.loop-visual{
+  position:relative;
+}
+
+/* Animated SVG loop */
+.loop-svg-wrap{
+  background:var(--s1);
+  border:1px solid var(--b1);
+  border-radius:16px;
+  overflow:hidden;
+  position:relative;
+}
+.loop-svg-wrap svg{width:100%;height:auto;display:block;}
+
+/* Pulse node animation */
+@keyframes nodePulse{
+  0%,100%{filter:drop-shadow(0 0 6px currentColor)}
+  50%{filter:drop-shadow(0 0 18px currentColor)}
+}
+@keyframes flowDash{
+  to{stroke-dashoffset:-20}
+}
+@keyframes appear{
+  from{opacity:0;transform:scale(0.92)}
+  to{opacity:1;transform:scale(1)}
+}
+.node-active{animation:nodePulse 1.8s ease-in-out infinite;}
+.flow-line{
+  stroke-dasharray:6 4;
+  animation:flowDash 0.6s linear infinite;
+}
+
+/* Right panel: iteration feed */
+.iter-panel{
+  display:flex;flex-direction:column;gap:12px;
+  max-height:560px;overflow-y:auto;
+}
+.iter-card{
+  background:var(--s1);
+  border:1px solid var(--b1);
+  border-radius:12px;
+  overflow:hidden;
+  transition:border-color 0.2s;
+  animation:appear 0.3s ease;
+}
+.iter-card.current{border-color:rgba(79,110,247,0.4);box-shadow:0 0 20px rgba(79,110,247,0.06);}
+.iter-card.ok{border-color:rgba(0,219,168,0.3);}
+.iter-card.err{border-color:rgba(255,95,126,0.3);}
+.iter-head{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;
+  border-bottom:1px solid var(--b1);
+}
+.iter-n{
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  width:24px;height:24px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--s2);color:var(--muted);flex-shrink:0;
+}
+.iter-card.current .iter-n{background:var(--c1);color:#fff;}
+.iter-card.ok .iter-n{background:var(--c2);color:#000;}
+.iter-card.err .iter-n{background:var(--c3);color:#fff;}
+.iter-label{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--text);}
+.iter-status{
+  margin-left:auto;font-family:var(--mono);font-size:10px;
+  padding:2px 8px;border-radius:20px;
+}
+.s-running{background:rgba(79,110,247,0.15);color:var(--c1l);}
+.s-ok{background:rgba(0,219,168,0.12);color:var(--c2);}
+.s-err{background:rgba(255,95,126,0.12);color:var(--c3);}
+.s-retry{background:rgba(255,179,71,0.12);color:var(--c4);}
+.iter-body{padding:12px 14px;display:flex;flex-direction:column;gap:6px;}
+.iter-row{
+  display:flex;align-items:flex-start;gap:8px;
+  font-family:var(--mono);font-size:11px;
+}
+.iter-row-icon{width:16px;flex-shrink:0;margin-top:1px;}
+.iter-row-text{color:var(--muted);line-height:1.5;}
+.iter-row-text strong{color:var(--text);font-weight:500;}
+.iter-row-text code{color:var(--c1l);background:var(--c1g);padding:1px 5px;border-radius:3px;}
+
+/* SQL snippet in iter */
+.sql-snip{
+  font-family:var(--mono);font-size:11px;
+  background:var(--s2);border:1px solid var(--b1);
+  border-radius:7px;padding:10px 12px;
+  line-height:1.7;overflow-x:auto;white-space:pre;
+  margin-top:4px;
+}
+.kw{color:#7c88ff;}.fn{color:#50d8b0;}.st{color:#f0a060;}.cm{color:var(--dim);font-style:italic;}
+
+/* ── LOOP CONTROLS ── */
+.loop-controls{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:20px;
+  flex-wrap:wrap;
+}
+.ctrl-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 18px;border-radius:8px;
+  font-family:var(--mono);font-size:12px;font-weight:500;
+  cursor:pointer;transition:all 0.15s;border:1px solid;
+}
+.cb-run{background:var(--c1);border-color:var(--c1);color:#fff;}
+.cb-run:hover{background:#6278ff;border-color:#6278ff;}
+.cb-stop{background:var(--s2);border-color:var(--b2);color:var(--muted);}
+.cb-stop:hover{border-color:var(--c3);color:var(--c3);}
+.cb-reset{background:var(--s2);border-color:var(--b2);color:var(--muted);}
+.cb-reset:hover{border-color:var(--b3);color:var(--text);}
+.iter-counter{
+  font-family:var(--mono);font-size:12px;color:var(--muted);
+  margin-left:auto;
+  background:var(--s2);border:1px solid var(--b1);
+  padding:6px 14px;border-radius:8px;
+}
+.iter-counter span{color:var(--c1l);font-weight:600;}
+
+/* ── SCENARIO CHIPS ── */
+.scenario-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.scen-chip{
+  font-family:var(--mono);font-size:10px;
+  padding:5px 12px;border-radius:20px;
+  border:1px solid var(--b2);color:var(--muted);
+  background:var(--s2);cursor:pointer;transition:all 0.15s;
+}
+.scen-chip:hover{border-color:var(--c1);color:var(--c1l);background:var(--c1g);}
+.scen-chip.active{border-color:var(--c1);color:var(--c1l);background:var(--c1g);}
+
+/* ── CODE BLOCKS ── */
+.code-block{
+  background:var(--s1);border:1px solid var(--b1);
+  border-radius:12px;overflow:hidden;margin:16px 0;
+}
+.cb-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;border-bottom:1px solid var(--b1);
+  background:rgba(255,255,255,0.02);
+}
+.cb-file{font-family:var(--mono);font-size:11px;color:var(--c2);}
+.cb-lang{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:0.06em;text-transform:uppercase;}
+.cb-copy{
+  font-family:var(--mono);font-size:10px;padding:3px 9px;
+  border-radius:5px;border:1px solid var(--b2);
+  background:var(--s2);color:var(--muted);cursor:pointer;
+  transition:all 0.15s;
+}
+.cb-copy:hover{border-color:var(--c1);color:var(--c1l);}
+pre{
+  padding:20px;overflow-x:auto;
+  font-family:var(--mono);font-size:12.5px;
+  line-height:1.75;color:#b0b8e0;
+}
+
+/* ── PHASE CARDS ── */
+.phase-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px;}
+.phase-card{
+  background:var(--s1);border:1px solid var(--b1);
+  border-radius:12px;padding:20px;
+  transition:border-color 0.2s,transform 0.2s;
+}
+.phase-card:hover{border-color:var(--b2);transform:translateY(-2px);}
+.ph-num{
+  font-size:32px;font-weight:800;letter-spacing:-0.04em;
+  color:var(--b2);line-height:1;margin-bottom:10px;
+}
+.ph-title{font-size:14px;font-weight:600;color:#fff;margin-bottom:6px;}
+.ph-desc{font-size:12px;color:var(--muted);line-height:1.55;font-weight:300;}
+.ph-files{margin-top:12px;display:flex;flex-direction:column;gap:3px;}
+.ph-file{font-family:var(--mono);font-size:10px;color:var(--dim);}
+.ph-file::before{content:'└ ';}
+.ph-tag{
+  display:inline-block;margin-top:10px;
+  font-family:var(--mono);font-size:10px;
+  padding:3px 10px;border-radius:20px;border:1px solid;
+}
+.t1{color:var(--c2);border-color:rgba(0,219,168,0.3);background:var(--c2g);}
+.t2{color:var(--c1l);border-color:rgba(79,110,247,0.3);background:var(--c1g);}
+.t3{color:var(--c4);border-color:rgba(255,179,71,0.3);background:var(--c4g);}
+.t4{color:var(--c3);border-color:rgba(255,95,126,0.3);background:var(--c3g);}
+
+/* ── RULE CARDS ── */
+.rule-list{display:flex;flex-direction:column;gap:10px;margin-top:20px;}
+.rule{
+  display:flex;gap:14px;align-items:flex-start;
+  padding:14px 16px;border-radius:10px;
+  background:var(--s1);border:1px solid var(--b1);
+  border-left:3px solid;
+}
+.rule-x{border-left-color:var(--c3);}
+.rule-w{border-left-color:var(--c4);}
+.rule-ok{border-left-color:var(--c2);}
+.rule-icon{font-family:var(--mono);font-size:13px;flex-shrink:0;margin-top:1px;width:18px;}
+.rule-x .rule-icon{color:var(--c3);}
+.rule-w .rule-icon{color:var(--c4);}
+.rule-ok .rule-icon{color:var(--c2);}
+.rule-text{font-size:12px;color:var(--muted);line-height:1.6;font-weight:300;}
+.rule-text b{color:var(--text);font-weight:500;}
+.rule-text code{font-family:var(--mono);font-size:11px;color:var(--c1l);background:var(--c1g);padding:1px 5px;border-radius:3px;}
+
+/* ── FLOW NODES ── */
+.node{
+  border-radius:10px;padding:10px 16px;
+  border:1px solid;font-family:var(--mono);font-size:11px;
+  display:inline-flex;flex-direction:column;gap:2px;
+  min-width:140px;
+}
+.n-title{font-weight:600;font-size:12px;}
+.n-sub{font-size:10px;opacity:0.7;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .loop-diagram{grid-template-columns:1fr;}
+  .phase-grid{grid-template-columns:1fr;}
+  .sec{padding:28px 20px;}
+  .hero{padding:48px 20px 36px;}
+}
+
+/* ── LOOP STATUS BAR ── */
+.status-bar{
+  display:flex;align-items:center;gap:16px;
+  padding:12px 18px;
+  background:var(--s2);border:1px solid var(--b1);
+  border-radius:10px;margin-bottom:16px;
+  font-family:var(--mono);font-size:11px;
+}
+.sb-item{display:flex;align-items:center;gap:6px;color:var(--muted);}
+.sb-val{color:var(--text);font-weight:500;}
+.sb-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.sb-dot.run{background:var(--c1);box-shadow:0 0 8px var(--c1);animation:pulse 1.5s ease-in-out infinite;}
+.sb-dot.ok{background:var(--c2);}
+.sb-dot.err{background:var(--c3);}
+.sb-dot.idle{background:var(--dim);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* progress bar */
+.progress-track{
+  flex:1;height:4px;background:var(--b1);border-radius:2px;overflow:hidden;
+}
+.progress-fill{
+  height:100%;background:linear-gradient(90deg,var(--c1),var(--c2));
+  border-radius:2px;transition:width 0.4s ease;
+}
+
+/* ── TABS in code section ── */
+.ctabs{display:flex;gap:0;border-bottom:1px solid var(--b1);margin-bottom:0;}
+.ctab{
+  font-family:var(--mono);font-size:11px;
+  padding:10px 16px;color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;transition:all 0.15s;
+}
+.ctab:hover{color:var(--text);}
+.ctab.on{color:var(--c1l);border-bottom-color:var(--c1);}
+.ctab-content{display:none;}
+.ctab-content.on{display:block;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-chip">NL</div>
+    NL2SQL <em>Engine</em>
+  </div>
+  <nav class="top-nav">
+    <div class="tnav on" onclick="gp('loop')">Agentic Loop <span class="badge">NEW</span></div>
+    <div class="tnav" onclick="gp('code')">Integration code</div>
+    <div class="tnav" onclick="gp('phases')">Build phases</div>
+    <div class="tnav" onclick="gp('rules')">Loop rules</div>
+  </nav>
+</header>
+
+<main>
+
+<!-- ══ PAGE: LOOP ══ -->
+<div class="page on" id="pg-loop">
+
+  <div class="hero">
+    <div class="hero-glow"></div>
+    <div class="hero-glow2"></div>
+    <div class="htag">Agentic loop integration</div>
+    <h1>Self-correcting<br><span class="hl">query engine</span></h1>
+    <p class="hero-desc">
+      The engine doesn't stop at first SQL generation. It feeds the result back into the LLM agent,
+      validates, self-corrects on error, and retries — up to N iterations — until it produces
+      a verified, justified answer or gracefully fails.
+    </p>
+    <div class="hero-pills">
+      <div class="hpill">Max N iterations</div>
+      <div class="hpill">Self-correction loop</div>
+      <div class="hpill">SQL validator gate</div>
+      <div class="hpill">Runtime retry</div>
+      <div class="hpill">Re-prompt on error</div>
+      <div class="hpill">State accumulation</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-tag">01 — Simulator</div>
+      <div class="sec-title">Live agentic loop</div>
+      <div class="sec-sub">Watch the engine iterate, self-correct, and produce a justified SQL response. Choose a scenario and hit Run.</div>
+    </div>
+
+    <!-- Scenario selector -->
+    <div class="scenario-row">
+      <div class="scen-chip active" onclick="setScenario(0,this)">Clean query</div>
+      <div class="scen-chip" onclick="setScenario(1,this)">Schema ambiguity</div>
+      <div class="scen-chip" onclick="setScenario(2,this)">Wrong enum value</div>
+      <div class="scen-chip" onclick="setScenario(3,this)">Missing join path</div>
+      <div class="scen-chip" onclick="setScenario(4,this)">Runtime timeout</div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar" id="status-bar">
+      <div class="sb-item"><div class="sb-dot idle" id="sb-dot"></div><span id="sb-phase">Idle</span></div>
+      <div class="sb-item">Iteration <span class="sb-val" id="sb-iter">0 / 5</span></div>
+      <div class="sb-item">Confidence <span class="sb-val" id="sb-conf">—</span></div>
+      <div class="sb-item" style="flex:1">
+        <div class="progress-track"><div class="progress-fill" id="prog" style="width:0%"></div></div>
+      </div>
+      <div class="sb-item">State tokens <span class="sb-val" id="sb-tokens">0</span></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="loop-controls">
+      <button class="ctrl-btn cb-run" id="btn-run" onclick="startLoop()">▶ Run loop</button>
+      <button class="ctrl-btn cb-stop" id="btn-stop" onclick="stopLoop()" disabled>■ Stop</button>
+      <button class="ctrl-btn cb-reset" onclick="resetLoop()">↺ Reset</button>
+      <div class="iter-counter">Iterations: <span id="iter-num">0</span> / <span id="iter-max">5</span></div>
+    </div>
+
+    <!-- Main diagram + iteration feed -->
+    <div class="loop-diagram">
+
+      <!-- Animated SVG diagram -->
+      <div class="loop-visual">
+        <div class="loop-svg-wrap">
+          <svg viewBox="0 0 440 640" xmlns="http://www.w3.org/2000/svg" id="loop-svg">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M1 1L9 5L1 9" fill="none" stroke="#3a3a68" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </marker>
+              <marker id="arr-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M1 1L9 5L1 9" fill="none" stroke="#4f6ef7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </marker>
+              <marker id="arr-g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M1 1L9 5L1 9" fill="none" stroke="#00dba8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </marker>
+              <marker id="arr-r" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M1 1L9 5L1 9" fill="none" stroke="#ff5f7e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </marker>
+            </defs>
+
+            <!-- bg label -->
+            <rect x="8" y="150" width="424" height="390" rx="10" fill="none" stroke="#1c1c38" stroke-width="1" stroke-dasharray="4 4"/>
+            <text x="20" y="168" font-family="'Fira Code',monospace" font-size="9" fill="#35355a" letter-spacing="0.1em">AGENTIC LOOP — MAX N ITERATIONS</text>
+
+            <!-- NODE: User query -->
+            <g id="n-user">
+              <rect x="130" y="20" width="180" height="44" rx="9" fill="#12122a" stroke="#262650" stroke-width="1.2"/>
+              <text x="220" y="38" text-anchor="middle" font-family="'Outfit',sans-serif" font-size="12" font-weight="600" fill="#dde0ff">User: NL query</text>
+              <text x="220" y="54" text-anchor="middle" font-family="'Fira Code',monospace" font-size="9" fill="#7070aa">"show me revenue by region"</text>
+            </g>
+
+            <!-- Arrow user → agent init -->
+            <line x1="220" y1="64" x2="220" y2="100" stroke="#3a3a68" stroke-width="1.5" marker-end="url(#arr)"/>
+
+            <!-- NODE: Agent initialises -->
+            <g id="n-init">
+              <rect x="110" y="100" width="220" height="46" rx="9" fill="#16163a" stroke="#303068" stroke-width="1.2"/>
+              <text x="220" y="119" text-anchor="middle" font-family="'Outfit',sans-serif" font-size="12" font-weight="600" fill="#8099ff">Agent initialises</text>
+              <text x="220" y="135" text-anchor="middle" font-family="'Fira Code',monospace" font-size="9" fill="#4f6ef7">state={query,results=[],attempts=0}</text>
+            </g>
+
+            <!-- Arrow → LLM reasons -->
+            <line x1="220" y1="146" x2="220" y2="186" stroke="#4f6ef7" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-b)" id="line-init"/>
+
+            <!-- NODE: LLM reasons -->
+            <g id="n-llm">
+              <rect x="80" y="186" width="280" height="50" rx="9" fill="#1a1a40" stroke="#4f6ef7" stroke-width="1.5"/>
+              <text x="220" y="207" text-anchor="middle" font-family="'Outfit',sans-serif" font-size="13" font-weight="700" fill="#8099ff">LLM reasons over state</text>
+              <text x="220" y="224" text-anchor="middle" font-family="'Fira Code',monospace" font-size="9" fill="#5060cc">decides: next tool call OR emit SQL</text>
+            </g>
+
+            <!-- LEFT BRANCH: tool call -->
+            <path d="M150 236 L90 280" stroke="#3a3a68" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+            <text x="90" y="272" font-family="'Fira Code',monospace" font-size="9" fill="#7070aa">tool call</text>
+
+            <!-- NODE: Tool dispatcher -->
+            <g id="n-tool">
+              <rect x="24" y="282" width="148" height="44" rx="8" fill="#0f1f2a" stroke="#00dba8" stroke-width="1.2"/>
+              <text x="98" y="300" text-anchor="middle" font-family="'Outfit',sans-serif" font-size="11" font-weight="600" fill="#00dba8">Tool dispatcher</text>
+              <text x="98" y="316" text-anchor="middle" font-family="'Fira Code',monospace" font-size="9" fill="#008060">routes to metadata layer</text>
+            </g>
+
+            <!-- Tool → append state -->
+            <line x1="98" y1="326" x2="98" y2="366" stroke="#00dba8" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr-g)"/>
+
+            <!-- NODE: Append state -->
+            <g id="n-state">
+              <rect x="24" y="366" width="148" height="44" rx="8" fill="#0f2018" stroke="#00dba8" stroke-width="1"/>
+              <text x="98" y="384" text-anchor="middle" font-family="'Outfit',sans-serif" font-size="11" font-weight="600" fill="#00dba8">Append to state</text>
+              <text x="98" y="400" text-anchor="middle" font-family="'Fira Code',monospace" font-size="9" fill="#008060">results += [result]</text>
+            </g>
+
+            <!-- State → back to LLM (loop back arrow) -->
+            <path d="M24 388 L8 388 L8 211 L80 211" stroke="#262650" stroke-width="1.2" fill="none" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+            <text x="3" y="305" font-family="'Fira Code',monospace" font-size="9" fill="#35355a" transform="rotate(-90 3 305)">next iteration</text>
+
+            <!-- RIGHT BRANCH: emit SQL -->
+            <path d="M290 236 L340 280" stroke="#3a3a68" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+            <text x="300" y="272" font-family="'Fira Code',monospace" font-size="9" fill="#7070aa">emit SQL</text>
+
+            <!-- NODE: SQL Validator -->
+            <g id="n-val">
+              <rect x="268" y="282" width="150" height="44" rx="8" fill="#1f1a0e" stroke="#ffb347" stroke-width="1.2"/>
+              <text x="343" y="300" text-anchor="middle" font-family="'Outfit',sans-serif" font-size="11" font-weight="600" fill="#ffb347">SQL validator</text>
+              <text x="343" y="316" text-anchor="middle" font-family="'Fira Code',monospace" font-size="9" fill="#a07020">syntax + schema check</text>
+            </g>
+
+            <!-- Validator → self-correction (error path) -->
+            <line x1="418" y1="304" x2="432" y2="304" stroke="#ff5f7e" stroke-width="1"/>
+            <text x="300" y="338" font-family="'Fira Code',monospace" font-size="9" fill="#7070aa">valid</text>
+
+            <!-- NODE: Self-correction -->
+            <g id="n-selfcorr">
+              <rect x="268" y="338" width="150" height="44" rx="8" fill="#28100e" stroke="#ff5f7e" stroke-width="1.2"/>
+              <text x="343" y="356" text-anchor="middle" font-family="'Outfit',sans-serif" font-size="11" font-weight="600" fill="#ff5f7e">Self-correction</text>
+              <text x="343" y="372" text-anchor="middle" font-family="'Fira Code',monospace" font-size="9" fill="#882030">error → re-prompt LLM</text>
+            </g>
+
+            <!-- Self-correction retry arrow back to LLM -->
+            <path d="M418 360 L432 360 L432 211 L360 211" stroke="#ff5f7e" stroke-width="1.2" fill="none" stroke-dasharray="4 3" marker-end="url(#arr-r)"/>
+            <text x="436" y="295" font-family="'Fira Code',monospace" font-size="9" fill="#882030" transform="rotate(90 436 295)">retry</text>
+
+            <!-- valid → query executor -->
+            <line x1="343" y1="382" x2="343" y2="420" stroke="#3a3a68" stroke-width="1.5" marker-end="url(#arr)"/>
+            <text x="350" y="414" font-family="'Fira Code',monospace" font-size="9" fill="#7070aa">valid</text>
+
+            <!-- NODE: Query executor -->
+            <g id="n-exec">
+              <rect x="110" y="422" width="220" height="44" rx="9" fill="#1a120e" stroke="#ffb347" stroke-width="1.2"/>
+              <text x="220" y="440" text-anchor="middle" font-family="'Outfit',sans-serif" font-size="12" font-weight="600" fill="#ffb347">Query executor</text>
+              <text x="220" y="456" text-anchor="middle" font-family="'Fira Code',monospace" font-size="9" fill="#806020">EXPLAIN → run → row limit guard</text>
+            </g>
+
+            <!-- Executor → runtime error? -->
+            <line x1="220" y1="466" x2="220" y2="496" stroke="#3a3a68" stroke-width="1.5" marker-end="url(#arr)"/>
+
+            <!-- NODE: Runtime error -->
+            <g id="n-rterr">
+              <rect x="110" y="496" width="220" height="44" rx="9" fill="#1e100e" stroke="#ff5f7e" stroke-width="1"/>
+              <text x="220" y="514" text-anchor="middle" font-family="'Outfit',sans-serif" font-size="12" font-weight="600" fill="#ff8878">Runtime error?</text>
+              <text x="220" y="530" text-anchor="middle" font-family="'Fira Code',monospace" font-size="9" fill="#884030">no such table / ambiguous col / timeout</text>
+            </g>
+
+            <!-- Runtime error retry back to LLM -->
+            <path d="M110 518 L60 518 L60 175 L80 175" stroke="#ff5f7e" stroke-width="1" fill="none" stroke-dasharray="3 3" marker-end="url(#arr-r)"/>
+            <text x="64" y="360" font-family="'Fira Code',monospace" font-size="9" fill="#882030" transform="rotate(-90 64 360)">runtime retry</text>
+
+            <!-- → Results returned -->
+            <line x1="220" y1="540" x2="220" y2="580" stroke="#00dba8" stroke-width="1.8" marker-end="url(#arr-g)"/>
+
+            <!-- NODE: Results -->
+            <g id="n-result">
+              <rect x="120" y="580" width="200" height="44" rx="9" fill="#0a2018" stroke="#00dba8" stroke-width="1.5"/>
+              <text x="220" y="598" text-anchor="middle" font-family="'Outfit',sans-serif" font-size="12" font-weight="600" fill="#00dba8">Results returned</text>
+              <text x="220" y="614" text-anchor="middle" font-family="'Fira Code',monospace" font-size="9" fill="#008060">justified + verified answer</text>
+            </g>
+
+            <!-- Active node highlight overlays (JS will show/hide) -->
+            <rect id="hl-init" x="110" y="100" width="220" height="46" rx="9" fill="rgba(79,110,247,0.1)" stroke="#8099ff" stroke-width="2" opacity="0" pointer-events="none"/>
+            <rect id="hl-llm" x="80" y="186" width="280" height="50" rx="9" fill="rgba(79,110,247,0.12)" stroke="#8099ff" stroke-width="2.5" opacity="0" pointer-events="none"/>
+            <rect id="hl-tool" x="24" y="282" width="148" height="44" rx="8" fill="rgba(0,219,168,0.12)" stroke="#00dba8" stroke-width="2" opacity="0" pointer-events="none"/>
+            <rect id="hl-state" x="24" y="366" width="148" height="44" rx="8" fill="rgba(0,219,168,0.1)" stroke="#00dba8" stroke-width="2" opacity="0" pointer-events="none"/>
+            <rect id="hl-val" x="268" y="282" width="150" height="44" rx="8" fill="rgba(255,179,71,0.12)" stroke="#ffb347" stroke-width="2" opacity="0" pointer-events="none"/>
+            <rect id="hl-selfcorr" x="268" y="338" width="150" height="44" rx="8" fill="rgba(255,95,126,0.15)" stroke="#ff5f7e" stroke-width="2" opacity="0" pointer-events="none"/>
+            <rect id="hl-exec" x="110" y="422" width="220" height="44" rx="9" fill="rgba(255,179,71,0.1)" stroke="#ffb347" stroke-width="2" opacity="0" pointer-events="none"/>
+            <rect id="hl-rterr" x="110" y="496" width="220" height="44" rx="9" fill="rgba(255,95,126,0.12)" stroke="#ff5f7e" stroke-width="2" opacity="0" pointer-events="none"/>
+            <rect id="hl-result" x="120" y="580" width="200" height="44" rx="9" fill="rgba(0,219,168,0.15)" stroke="#00dba8" stroke-width="2.5" opacity="0" pointer-events="none"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Iteration feed -->
+      <div class="iter-panel" id="iter-panel">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--dim);text-align:center;padding:40px 0;">
+          Select a scenario and hit ▶ Run loop
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: CODE ══ -->
+<div class="page" id="pg-code">
+  <div class="topbar" style="position:relative;top:0;background:var(--s1);border-bottom:1px solid var(--b1);">
+    <span style="font-family:var(--mono);font-size:12px;color:var(--muted);">Integration code</span>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:8px;">— drop-in replacement for tool_orchestrator.py</span>
+  </div>
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-tag">02 — Integration</div>
+      <div class="sec-title">Complete agentic loop code</div>
+      <div class="sec-sub">These files replace and extend the existing controller layer. The loop is self-contained — drop AgenticLoop into tool_orchestrator and update QueryController to call it.</div>
+    </div>
+
+    <div style="border:1px solid var(--b1);border-radius:12px;overflow:hidden;">
+      <div class="ctabs">
+        <div class="ctab on" onclick="ct(0,this)">agentric_loop.py</div>
+        <div class="ctab" onclick="ct(1,this)">query_controller.py</div>
+        <div class="ctab" onclick="ct(2,this)">loop_state.py</div>
+        <div class="ctab" onclick="ct(3,this)">self_corrector.py</div>
+      </div>
+
+      <div class="ctab-content on" id="ct-0">
+        <div class="cb-head"><span class="cb-file">controller/agentic_loop.py</span><span class="cb-lang">Python</span></div>
+        <pre><span style="color:#5060cc"># controller/agentic_loop.py
+# ─────────────────────────────────────────────────────────────────
+# The self-correcting agentic loop.
+# Replaces ToolOrchestrator. Import this in query_controller.py.
+# ─────────────────────────────────────────────────────────────────</span>
+
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">dataclasses</span> <span style="color:#8099ff">import</span> dataclass, field
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">typing</span> <span style="color:#8099ff">import</span> Any
+<span style="color:#8099ff">import</span> <span style="color:#dde0ff">logging</span>
+
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">controller.loop_state</span> <span style="color:#8099ff">import</span> LoopState
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">controller.self_corrector</span> <span style="color:#8099ff">import</span> SelfCorrector
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">model.facade</span> <span style="color:#8099ff">import</span> ModelFacade
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">tools</span> <span style="color:#8099ff">import</span> ALL_TOOLS
+
+log = logging.getLogger(__name__)
+
+<span style="color:#8099ff">class</span> <span style="color:#50d8b0">AgenticLoop</span>:
+    <span style="color:#5060cc">"""
+    Self-correcting agentic loop. Runs up to max_iterations.
+    On tool call  → dispatches to metadata layer, appends to state.
+    On emit SQL   → validates, self-corrects if invalid, executes.
+    On runtime err → re-prompts LLM with error context, retries.
+    """</span>
+
+    <span style="color:#8099ff">def</span> <span style="color:#50d8b0">__init__</span>(
+        self,
+        model: <span style="color:#50d8b0">ModelFacade</span>,
+        max_iterations: int = <span style="color:#f0a060">5</span>,
+        max_correction_attempts: int = <span style="color:#f0a060">2</span>,
+    ):
+        self.model = model
+        self.max_iter = max_iterations
+        self.max_corrections = max_correction_attempts
+        self.corrector = <span style="color:#50d8b0">SelfCorrector</span>()
+
+    <span style="color:#8099ff">async def</span> <span style="color:#50d8b0">run</span>(self, query: str) -> <span style="color:#50d8b0">LoopState</span>:
+        state = <span style="color:#50d8b0">LoopState</span>(nl_query=query)
+        messages = [self.<span style="color:#50d8b0">_build_system_msg</span>(query)]
+
+        <span style="color:#8099ff">for</span> i <span style="color:#8099ff">in</span> range(self.max_iter):
+            state.iteration = i + <span style="color:#f0a060">1</span>
+            log.info(<span style="color:#f0a060">f"Loop iteration {state.iteration}"</span>)
+
+            <span style="color:#5060cc"># ── LLM reasons over current state ──</span>
+            response = <span style="color:#8099ff">await</span> self.<span style="color:#50d8b0">_call_llm</span>(messages, state)
+
+            <span style="color:#8099ff">if</span> response.stop_reason == <span style="color:#f0a060">"tool_use"</span>:
+                <span style="color:#5060cc"># ── Tool call branch ──</span>
+                results = <span style="color:#8099ff">await</span> self.<span style="color:#50d8b0">_dispatch_tools</span>(response.tool_calls)
+                state.tool_results.extend(results)
+                messages = self.<span style="color:#50d8b0">_append_tool_results</span>(messages, response, results)
+
+            <span style="color:#8099ff">elif</span> response.stop_reason == <span style="color:#f0a060">"end_turn"</span>:
+                <span style="color:#5060cc"># ── SQL emit branch ──</span>
+                sql = self.<span style="color:#50d8b0">_extract_sql</span>(response)
+                <span style="color:#8099ff">if not</span> sql:
+                    <span style="color:#8099ff">break</span>
+
+                <span style="color:#5060cc"># ── SQL validation gate ──</span>
+                val_result = self.model.<span style="color:#50d8b0">validate_sql</span>(sql)
+                <span style="color:#8099ff">if not</span> val_result.valid:
+                    corrected = <span style="color:#8099ff">await</span> self.corrector.<span style="color:#50d8b0">correct</span>(
+                        sql, val_result.error, state, self.max_corrections
+                    )
+                    <span style="color:#8099ff">if</span> corrected:
+                        sql = corrected
+                    <span style="color:#8099ff">else</span>:
+                        state.<span style="color:#50d8b0">add_error</span>(<span style="color:#f0a060">"validation"</span>, val_result.error)
+                        messages = self.<span style="color:#50d8b0">_append_error</span>(messages, val_result.error)
+                        <span style="color:#8099ff">continue</span>   <span style="color:#5060cc"># retry iteration</span>
+
+                <span style="color:#5060cc"># ── Execute against DB ──</span>
+                exec_result = <span style="color:#8099ff">await</span> self.model.db.<span style="color:#50d8b0">execute</span>(sql)
+                <span style="color:#8099ff">if</span> exec_result.error:
+                    <span style="color:#5060cc"># runtime error → re-prompt with error context</span>
+                    state.<span style="color:#50d8b0">add_error</span>(<span style="color:#f0a060">"runtime"</span>, exec_result.error)
+                    messages = self.<span style="color:#50d8b0">_append_runtime_error</span>(
+                        messages, sql, exec_result.error
+                    )
+                    <span style="color:#8099ff">continue</span>   <span style="color:#5060cc"># retry iteration with error in context</span>
+
+                <span style="color:#5060cc"># ── Success ──</span>
+                state.final_sql = sql
+                state.rows = exec_result.rows
+                state.confidence = self.<span style="color:#50d8b0">_score_confidence</span>(state)
+                state.success = <span style="color:#f0a060">True</span>
+                <span style="color:#8099ff">break</span>
+
+        state.<span style="color:#50d8b0">finalize</span>()
+        <span style="color:#8099ff">return</span> state</pre>
+      </div>
+
+      <div class="ctab-content" id="ct-1">
+        <div class="cb-head"><span class="cb-file">controller/query_controller.py</span><span class="cb-lang">Python</span></div>
+        <pre><span style="color:#5060cc"># controller/query_controller.py  (updated)
+# ─────────────────────────────────────────────────────────────────
+# QueryController now delegates the full pipeline to AgenticLoop.
+# The View layer still calls ctrl.handle(request) — no change there.
+# ─────────────────────────────────────────────────────────────────</span>
+
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">controller.agentic_loop</span> <span style="color:#8099ff">import</span> AgenticLoop
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">controller.result_formatter</span> <span style="color:#8099ff">import</span> ResultFormatter
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">model.facade</span> <span style="color:#8099ff">import</span> ModelFacade
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">view.schemas.request</span> <span style="color:#8099ff">import</span> QueryRequest
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">view.schemas.response</span> <span style="color:#8099ff">import</span> QueryResponse
+
+<span style="color:#8099ff">class</span> <span style="color:#50d8b0">QueryController</span>:
+    <span style="color:#8099ff">def</span> <span style="color:#50d8b0">__init__</span>(self, model: <span style="color:#50d8b0">ModelFacade</span>, settings):
+        self.loop = <span style="color:#50d8b0">AgenticLoop</span>(
+            model=model,
+            max_iterations=settings.loop_max_iter,       <span style="color:#5060cc"># default 5</span>
+            max_correction_attempts=settings.max_corrections, <span style="color:#5060cc"># default 2</span>
+        )
+        self.formatter = <span style="color:#50d8b0">ResultFormatter</span>()
+
+    <span style="color:#8099ff">async def</span> <span style="color:#50d8b0">handle</span>(self, req: <span style="color:#50d8b0">QueryRequest</span>) -> <span style="color:#50d8b0">QueryResponse</span>:
+        <span style="color:#5060cc"># Run the full agentic loop</span>
+        state = <span style="color:#8099ff">await</span> self.loop.<span style="color:#50d8b0">run</span>(req.nl_query)
+
+        <span style="color:#8099ff">if not</span> state.success:
+            <span style="color:#8099ff">raise</span> <span style="color:#50d8b0">QueryFailedError</span>(
+                f"Loop exhausted after {state.iteration} iterations. "
+                f"Errors: {state.errors}"
+            )
+
+        <span style="color:#8099ff">return</span> self.formatter.<span style="color:#50d8b0">format</span>(state)</pre>
+      </div>
+
+      <div class="ctab-content" id="ct-2">
+        <div class="cb-head"><span class="cb-file">controller/loop_state.py</span><span class="cb-lang">Python</span></div>
+        <pre><span style="color:#5060cc"># controller/loop_state.py
+# Accumulates all state across iterations.
+# Passed to LLM as context on every round.</span>
+
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">dataclasses</span> <span style="color:#8099ff">import</span> dataclass, field
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">datetime</span> <span style="color:#8099ff">import</span> datetime, timezone
+<span style="color:#8099ff">from</span> <span style="color:#dde0ff">typing</span> <span style="color:#8099ff">import</span> Any
+
+@dataclass
+<span style="color:#8099ff">class</span> <span style="color:#50d8b0">LoopState</span>:
+    nl_query: str
+    iteration: int = <span style="color:#f0a060">0</span>
+    tool_results: list[dict] = field(default_factory=list)
+    errors: list[dict] = field(default_factory=list)
+    sql_attempts: list[str] = field(default_factory=list)
+    final_sql: str | None = None
+    rows: list[dict] = field(default_factory=list)
+    confidence: float = <span style="color:#f0a060">0.0</span>
+    success: bool = <span style="color:#f0a060">False</span>
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    finished_at: datetime | None = None
+    token_count: int = <span style="color:#f0a060">0</span>
+
+    <span style="color:#8099ff">def</span> <span style="color:#50d8b0">add_error</span>(self, kind: str, msg: str):
+        self.errors.append({
+            <span style="color:#f0a060">"kind"</span>: kind,
+            <span style="color:#f0a060">"message"</span>: msg,
+            <span style="color:#f0a060">"iteration"</span>: self.iteration,
+        })
+
+    <span style="color:#8099ff">def</span> <span style="color:#50d8b0">finalize</span>(self):
+        self.finished_at = datetime.now(timezone.utc)
+        self.token_count = sum(
+            len(str(r)) <span style="color:#8099ff">for</span> r <span style="color:#8099ff">in</span> self.tool_results
+        )
+
+    <span style="color:#8099ff">def</span> <span style="color:#50d8b0">to_context_dict</span>(self) -> dict:
+        <span style="color:#5060cc">"""Serialised for LLM prompt injection."""</span>
+        <span style="color:#8099ff">return</span> {
+            <span style="color:#f0a060">"nl_query"</span>: self.nl_query,
+            <span style="color:#f0a060">"iteration"</span>: self.iteration,
+            <span style="color:#f0a060">"tool_results"</span>: self.tool_results[-<span style="color:#f0a060">10</span>:],   <span style="color:#5060cc"># last 10</span>
+            <span style="color:#f0a060">"errors"</span>: self.errors,
+            <span style="color:#f0a060">"sql_attempts"</span>: self.sql_attempts,
+        }</pre>
+      </div>
+
+      <div class="ctab-content" id="ct-3">
+        <div class="cb-head"><span class="cb-file">controller/self_corrector.py</span><span class="cb-lang">Python</span></div>
+        <pre><span style="color:#5060cc"># controller/self_corrector.py
+# Called when SQL validation fails.
+# Re-prompts the LLM with the invalid SQL + error message,
+# asking it to return a corrected version.</span>
+
+<span style="color:#8099ff">class</span> <span style="color:#50d8b0">SelfCorrector</span>:
+    <span style="color:#8099ff">async def</span> <span style="color:#50d8b0">correct</span>(
+        self,
+        bad_sql: str,
+        error: str,
+        state: <span style="color:#50d8b0">LoopState</span>,
+        max_attempts: int = <span style="color:#f0a060">2</span>,
+    ) -> str | None:
+        <span style="color:#8099ff">for</span> attempt <span style="color:#8099ff">in</span> range(max_attempts):
+            prompt = self.<span style="color:#50d8b0">_correction_prompt</span>(bad_sql, error, state)
+            response = <span style="color:#8099ff">await</span> llm.<span style="color:#50d8b0">call</span>([{
+                <span style="color:#f0a060">"role"</span>: <span style="color:#f0a060">"user"</span>,
+                <span style="color:#f0a060">"content"</span>: prompt,
+            }])
+            corrected = self.<span style="color:#50d8b0">_extract_sql</span>(response)
+            <span style="color:#8099ff">if</span> corrected:
+                state.sql_attempts.append(corrected)
+                <span style="color:#8099ff">return</span> corrected
+
+        <span style="color:#8099ff">return</span> None   <span style="color:#5060cc"># correction exhausted</span>
+
+    <span style="color:#8099ff">def</span> <span style="color:#50d8b0">_correction_prompt</span>(self, sql, error, state) -> str:
+        <span style="color:#8099ff">return</span> <span style="color:#f0a060">f"""
+The following SQL is invalid. Fix it and return only corrected SQL.
+
+Original NL query: {state.nl_query}
+
+Invalid SQL:
+{sql}
+
+Validation error:
+{error}
+
+Schema context collected so far:
+{state.tool_results}
+
+Return ONLY the corrected SQL, no explanation.
+"""</span></pre>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ PAGE: PHASES ══ -->
+<div class="page" id="pg-phases">
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-tag">03 — Build plan</div>
+      <div class="sec-title">Integrating the loop</div>
+      <div class="sec-sub">4 targeted additions to the existing engine. Build in order — each phase is independently testable.</div>
+    </div>
+    <div class="phase-grid">
+      <div class="phase-card">
+        <div class="ph-num">1</div>
+        <div class="ph-title">LoopState dataclass</div>
+        <div class="ph-desc">Build the state accumulator first. It holds tool_results, errors, sql_attempts, iteration count, and confidence. All other phases depend on it. Unit test it standalone.</div>
+        <div class="ph-files">
+          <div class="ph-file">controller/loop_state.py</div>
+        </div>
+        <span class="ph-tag t1">Day 1</span>
+      </div>
+      <div class="phase-card">
+        <div class="ph-num">2</div>
+        <div class="ph-title">AgenticLoop + tool dispatch</div>
+        <div class="ph-desc">Replace ToolOrchestrator with AgenticLoop. Wire the tool call branch: LLM calls a tool → dispatch → append to state → feed back into next iteration. Test with a clean query — no errors yet.</div>
+        <div class="ph-files">
+          <div class="ph-file">controller/agentic_loop.py</div>
+          <div class="ph-file">controller/query_controller.py (update)</div>
+        </div>
+        <span class="ph-tag t1">Day 1–2</span>
+      </div>
+      <div class="phase-card">
+        <div class="ph-num">3</div>
+        <div class="ph-title">SelfCorrector + validation gate</div>
+        <div class="ph-desc">Add the SQL validation gate in the emit-SQL branch. When validation fails, SelfCorrector re-prompts LLM with bad SQL + error. Test with intentionally bad SQL — corrected SQL must pass validation before continuing.</div>
+        <div class="ph-files">
+          <div class="ph-file">controller/self_corrector.py</div>
+        </div>
+        <span class="ph-tag t2">Day 2–3</span>
+      </div>
+      <div class="phase-card">
+        <div class="ph-num">4</div>
+        <div class="ph-title">Runtime error retry</div>
+        <div class="ph-desc">After db.execute() fails (no such table, ambiguous column, timeout), serialize the runtime error into messages and continue the loop. Test each error type from your scenario list. Add max_iter guard to prevent infinite loops.</div>
+        <div class="ph-files">
+          <div class="ph-file">controller/agentic_loop.py (extend)</div>
+          <div class="ph-file">model/db/connector.py (error surface)</div>
+        </div>
+        <span class="ph-tag t3">Day 3–4</span>
+      </div>
+      <div class="phase-card">
+        <div class="ph-num">5</div>
+        <div class="ph-title">Confidence scoring</div>
+        <div class="ph-desc">Score each final answer: iterations used, correction attempts, row count plausibility, schema coverage. Low confidence → flag for human review rather than return silently wrong answer.</div>
+        <div class="ph-files">
+          <div class="ph-file">controller/agentic_loop.py (_score_confidence)</div>
+          <div class="ph-file">view/schemas/response.py (add confidence field)</div>
+        </div>
+        <span class="ph-tag t3">Day 4</span>
+      </div>
+      <div class="phase-card">
+        <div class="ph-num">6</div>
+        <div class="ph-title">Loop tests + golden set</div>
+        <div class="ph-desc">Write integration tests for every scenario: clean, enum mismatch, missing join, runtime timeout, schema ambiguity. Assert final SQL is correct, iteration count is ≤ max, no unhandled exceptions.</div>
+        <div class="ph-files">
+          <div class="ph-file">tests/integration/test_agentic_loop.py</div>
+          <div class="ph-file">tests/golden/ (loop-specific cases)</div>
+        </div>
+        <span class="ph-tag t4">Day 5</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: RULES ══ -->
+<div class="page" id="pg-rules">
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-tag">04 — Contracts</div>
+      <div class="sec-title">Loop rules</div>
+      <div class="sec-sub">These are non-negotiable constraints for the agentic loop. Breaking them causes silent wrong answers, infinite loops, or unsafe DB execution.</div>
+    </div>
+    <div class="rule-list">
+      <div class="rule rule-x">
+        <div class="rule-icon">✗</div>
+        <div class="rule-text"><b>Never execute SQL without validation passing first.</b> SQLValidator must run inside the loop before every <code>db.execute()</code>. Self-correction happens here, not after execution.</div>
+      </div>
+      <div class="rule rule-x">
+        <div class="rule-icon">✗</div>
+        <div class="rule-text"><b>Never run the loop without a hard iteration ceiling.</b> Always enforce <code>max_iterations</code>. An uncapped loop on a hard query will exhaust tokens and never return. Default is 5; never set it above 10.</div>
+      </div>
+      <div class="rule rule-x">
+        <div class="rule-icon">✗</div>
+        <div class="rule-text"><b>Never silently swallow a failed loop.</b> If the loop exits without <code>state.success = True</code>, raise a <code>QueryFailedError</code> with the full error list. The View layer surfaces this as a structured 422.</div>
+      </div>
+      <div class="rule rule-w">
+        <div class="rule-icon">!</div>
+        <div class="rule-text"><b>Limit self-correction to 2 attempts per SQL emit.</b> More than 2 correction attempts on the same SQL means the schema context is wrong — the loop should re-collect context (tool calls) rather than keep correcting bad SQL.</div>
+      </div>
+      <div class="rule rule-w">
+        <div class="rule-icon">!</div>
+        <div class="rule-text"><b>Append all errors to state before re-entering the loop.</b> The LLM must see previous errors in its context window each iteration. <code>LoopState.errors</code> is serialised into every subsequent message. If errors are not injected, the LLM repeats the same mistake.</div>
+      </div>
+      <div class="rule rule-w">
+        <div class="rule-icon">!</div>
+        <div class="rule-text"><b>Always include a row limit guard in the executor.</b> Wrap every <code>SELECT</code> with <code>LIMIT 10000</code> unless the query explicitly requests aggregate output. Runtime timeout on large tables causes the loop to retry unnecessarily.</div>
+      </div>
+      <div class="rule rule-ok">
+        <div class="rule-icon">✓</div>
+        <div class="rule-text"><b>Log every iteration to QueryLog.</b> Write <code>(nl_query, iteration, sql_attempt, error, success)</code> for every loop cycle. This data trains future few-shot retrieval and reveals which query types cause the most correction cycles.</div>
+      </div>
+      <div class="rule rule-ok">
+        <div class="rule-icon">✓</div>
+        <div class="rule-text"><b>Return confidence score with every response.</b> Compute it from: iterations used, correction count, row plausibility, schema coverage ratio. Low-confidence responses should be flagged in the API response so the caller can decide whether to show them.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ── PAGE NAV ──
+function gp(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tnav').forEach(n=>n.classList.remove('on'));
+  document.getElementById('pg-'+id).classList.add('on');
+  event.target.classList.add('on');
+}
+
+// ── CODE TABS ──
+function ct(i,el){
+  document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.ctab-content').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('ct-'+i).classList.add('on');
+}
+
+// ── AGENTIC LOOP SIMULATOR ──
+const SCENARIOS = [
+  { // 0 — Clean query
+    label:'Clean query',
+    query:'Total revenue per region last quarter',
+    iterations:[
+      {
+        label:'Iteration 1 — tool calls',
+        kind:'current',
+        steps:[
+          {icon:'🔍',text:'<strong>find_relevant_tables</strong>("revenue region quarter") → <code>orders, regions, products</code>'},
+          {icon:'📐',text:'<strong>get_table_schema</strong>(["orders","regions"]) → 14 columns'},
+          {icon:'🔗',text:'<strong>get_table_relationships</strong>(["orders","regions"]) → <code>orders.region_id → regions.id</code>'},
+        ],
+        status:'s-running'
+      },
+      {
+        label:'Iteration 2 — emit SQL',
+        kind:'ok',
+        sql:`SELECT r.name AS region,
+       SUM(o.total_amount) AS revenue
+FROM orders o
+JOIN regions r ON o.region_id = r.id
+WHERE o.created_at >= DATE_TRUNC('quarter', NOW() - INTERVAL '1 quarter')
+  AND o.created_at <  DATE_TRUNC('quarter', NOW())
+GROUP BY r.name
+ORDER BY revenue DESC`,
+        steps:[
+          {icon:'✅',text:'<strong>SQL validator</strong> passed — syntax OK, all columns verified'},
+          {icon:'▶',text:'<strong>Executor</strong> ran — 8 rows returned in 42ms'},
+          {icon:'📊',text:'<strong>Confidence</strong> 0.97 — clean pass, 1 iteration'},
+        ],
+        status:'s-ok'
+      }
+    ],
+    nodes:['hl-init','hl-llm','hl-tool','hl-state','hl-llm','hl-val','hl-exec','hl-result'],
+    finalSql:`SELECT r.name AS region,
+       SUM(o.total_amount) AS revenue
+FROM orders o
+JOIN regions r ON o.region_id = r.id
+WHERE o.created_at >= DATE_TRUNC('quarter',...)
+GROUP BY r.name ORDER BY revenue DESC`
+  },
+  { // 1 — Schema ambiguity
+    label:'Schema ambiguity',
+    query:'Show me customer orders with their product names',
+    iterations:[
+      {
+        label:'Iteration 1 — tool calls',kind:'current',
+        steps:[
+          {icon:'🔍',text:'<strong>find_relevant_tables</strong> → <code>orders, customers, products, order_items</code>'},
+          {icon:'📐',text:'<strong>get_schema</strong>(["orders","order_items"]) → found <code>product_id</code> FK'},
+          {icon:'⚠️',text:'<strong>LLM</strong> unsure: <code>order_items.product_id</code> vs <code>orders.product_id</code> — calls get_relationships'},
+        ],status:'s-running'
+      },
+      {
+        label:'Iteration 2 — disambiguate',kind:'current',
+        steps:[
+          {icon:'🔗',text:'<strong>get_relationships</strong> → <code>order_items.product_id → products.id</code> confirmed'},
+          {icon:'📄',text:'<strong>get_sample_values</strong>(order_items, product_id) → integer FK, not name'},
+          {icon:'🧠',text:'<strong>LLM</strong> now has full join path — emits SQL'},
+        ],status:'s-running'
+      },
+      {
+        label:'Iteration 3 — emit SQL',kind:'ok',
+        sql:`SELECT c.name, o.id AS order_id,
+       p.title AS product_name, oi.qty
+FROM orders o
+JOIN customers c     ON o.customer_id = c.id
+JOIN order_items oi  ON oi.order_id   = o.id
+JOIN products p      ON oi.product_id = p.id
+ORDER BY o.id`,
+        steps:[
+          {icon:'✅',text:'<strong>SQL validator</strong> passed'},
+          {icon:'▶',text:'<strong>Executor</strong> ran — 124 rows, 89ms'},
+          {icon:'📊',text:'<strong>Confidence</strong> 0.91 — 2 iterations, no errors'},
+        ],status:'s-ok'
+      }
+    ],
+    nodes:['hl-init','hl-llm','hl-tool','hl-state','hl-llm','hl-tool','hl-state','hl-llm','hl-val','hl-exec','hl-result']
+  },
+  { // 2 — Wrong enum
+    label:'Wrong enum value',
+    query:'Show all completed orders from last month',
+    iterations:[
+      {
+        label:'Iteration 1 — tool calls',kind:'current',
+        steps:[
+          {icon:'🔍',text:'<strong>find_relevant_tables</strong> → <code>orders</code>'},
+          {icon:'📐',text:'<strong>get_schema</strong>(["orders"]) → <code>status VARCHAR</code> found'},
+          {icon:'🔬',text:'<strong>get_sample_values</strong>(orders, status) → <code>["COMPLETE","PENDING","CANCELLED","PROCESSING"]</code>'},
+        ],status:'s-running'
+      },
+      {
+        label:'Iteration 2 — corrected enum',kind:'ok',
+        sql:`SELECT * FROM orders
+WHERE status = 'COMPLETE'
+  AND created_at >= DATE_TRUNC('month', NOW() - INTERVAL '1 month')
+  AND created_at <  DATE_TRUNC('month', NOW())
+ORDER BY created_at DESC`,
+        steps:[
+          {icon:'💡',text:'<strong>LLM</strong> matched "completed" → <code>COMPLETE</code> from sample values'},
+          {icon:'✅',text:'<strong>Validator</strong> passed — no enum mismatch'},
+          {icon:'▶',text:'<strong>Executor</strong> ran — 342 rows, 31ms'},
+        ],status:'s-ok'
+      }
+    ],
+    nodes:['hl-init','hl-llm','hl-tool','hl-state','hl-llm','hl-val','hl-exec','hl-result']
+  },
+  { // 3 — Missing join path
+    label:'Missing join path',
+    query:'Revenue by sales rep for enterprise accounts',
+    iterations:[
+      {
+        label:'Iteration 1 — first attempt',kind:'err',
+        steps:[
+          {icon:'🔍',text:'<strong>find_relevant_tables</strong> → <code>orders, accounts, users</code>'},
+          {icon:'📐',text:'<strong>get_schema</strong> → LLM misses bridge table <code>account_reps</code>'},
+          {icon:'❌',text:'<strong>SQL emitted</strong> — invalid JOIN: no direct FK orders→users'},
+        ],status:'s-err'
+      },
+      {
+        label:'Iteration 2 — self-correction',kind:'current',
+        steps:[
+          {icon:'🔴',text:'<strong>Validator failed</strong>: column "users.id" not reachable from orders'},
+          {icon:'🔁',text:'<strong>SelfCorrector</strong> re-prompts LLM with error + schema context'},
+          {icon:'🔍',text:'<strong>LLM calls</strong> get_relationships again — discovers <code>account_reps</code> bridge table'},
+        ],status:'s-retry'
+      },
+      {
+        label:'Iteration 3 — corrected SQL',kind:'ok',
+        sql:`SELECT u.name AS sales_rep,
+       SUM(o.total_amount) AS revenue
+FROM orders o
+JOIN accounts a       ON o.account_id    = a.id
+JOIN account_reps ar  ON ar.account_id   = a.id
+JOIN users u          ON ar.user_id      = u.id
+WHERE a.tier = 'enterprise'
+GROUP BY u.name
+ORDER BY revenue DESC`,
+        steps:[
+          {icon:'✅',text:'<strong>Validator</strong> passed — full join path verified'},
+          {icon:'▶',text:'<strong>Executor</strong> ran — 12 rows, 58ms'},
+          {icon:'📊',text:'<strong>Confidence</strong> 0.82 — 3 iterations, 1 self-correction'},
+        ],status:'s-ok'
+      }
+    ],
+    nodes:['hl-init','hl-llm','hl-tool','hl-state','hl-llm','hl-val','hl-selfcorr','hl-llm','hl-tool','hl-state','hl-llm','hl-val','hl-exec','hl-result']
+  },
+  { // 4 — Runtime timeout
+    label:'Runtime timeout',
+    query:'All orders joined to all products with no filters',
+    iterations:[
+      {
+        label:'Iteration 1 — first SQL',kind:'err',
+        steps:[
+          {icon:'🔍',text:'<strong>find_tables</strong> → <code>orders, products</code>'},
+          {icon:'📐',text:'<strong>get_schema</strong> → LLM generates cartesian join (no WHERE)'},
+          {icon:'⏱️',text:'<strong>Executor</strong> ran — TIMEOUT after 30s, 50M rows attempted'},
+        ],status:'s-err'
+      },
+      {
+        label:'Iteration 2 — runtime retry',kind:'current',
+        steps:[
+          {icon:'🔴',text:'<strong>Runtime error</strong>: query timeout — appended to state'},
+          {icon:'🔁',text:'<strong>Loop continues</strong> — LLM sees error in context'},
+          {icon:'💡',text:'<strong>LLM</strong> adds LIMIT + proper JOIN condition + row limit guard'},
+        ],status:'s-retry'
+      },
+      {
+        label:'Iteration 3 — safe SQL',kind:'ok',
+        sql:`SELECT o.id, p.title, o.total_amount
+FROM orders o
+JOIN order_items oi ON oi.order_id   = o.id
+JOIN products p     ON oi.product_id = p.id
+WHERE o.created_at >= NOW() - INTERVAL '30 days'
+ORDER BY o.created_at DESC
+LIMIT 1000`,
+        steps:[
+          {icon:'✅',text:'<strong>Validator</strong> + row limit guard passed'},
+          {icon:'▶',text:'<strong>Executor</strong> ran — 1000 rows, 210ms'},
+          {icon:'📊',text:'<strong>Confidence</strong> 0.74 — flagged: original query was unbounded'},
+        ],status:'s-ok'
+      }
+    ],
+    nodes:['hl-init','hl-llm','hl-tool','hl-state','hl-llm','hl-val','hl-exec','hl-rterr','hl-llm','hl-val','hl-exec','hl-result']
+  }
+];
+
+let currentScenario = 0;
+let loopRunning = false;
+let loopTimer = null;
+let nodeSeqIdx = 0;
+let nodeTimer = null;
+const ALL_NODES = ['hl-init','hl-llm','hl-tool','hl-state','hl-val','hl-selfcorr','hl-exec','hl-rterr','hl-result'];
+
+function setScenario(idx, el){
+  document.querySelectorAll('.scen-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  currentScenario = idx;
+  resetLoop();
+}
+
+function clearNodes(){
+  ALL_NODES.forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.setAttribute('opacity','0');
+  });
+}
+
+function highlightNode(id, dur=600){
+  clearNodes();
+  const el = document.getElementById(id);
+  if(el){
+    el.setAttribute('opacity','1');
+    setTimeout(()=>el.setAttribute('opacity','0'), dur);
+  }
+}
+
+function startNodeLoop(nodes){
+  if(nodeTimer) clearInterval(nodeTimer);
+  nodeSeqIdx = 0;
+  nodeTimer = setInterval(()=>{
+    if(!loopRunning){ clearInterval(nodeTimer); clearNodes(); return; }
+    clearNodes();
+    const id = nodes[nodeSeqIdx % nodes.length];
+    const el = document.getElementById(id);
+    if(el) el.setAttribute('opacity','1');
+    nodeSeqIdx++;
+  }, 700);
+}
+
+function updateStatus(phase, iter, total, conf, tokens, dotClass){
+  document.getElementById('sb-phase').textContent = phase;
+  document.getElementById('sb-iter').textContent = iter+' / '+total;
+  document.getElementById('sb-conf').textContent = conf;
+  document.getElementById('sb-tokens').textContent = tokens;
+  document.getElementById('iter-num').textContent = iter;
+  document.getElementById('iter-max').textContent = total;
+  const dot = document.getElementById('sb-dot');
+  dot.className = 'sb-dot '+dotClass;
+  const pct = Math.round((iter/total)*100);
+  document.getElementById('prog').style.width = pct+'%';
+}
+
+function addIterCard(data, iterNum){
+  const panel = document.getElementById('iter-panel');
+  const card = document.createElement('div');
+  card.className = 'iter-card '+(data.kind||'');
+  card.id = 'iter-card-'+iterNum;
+
+  let stepsHtml = (data.steps||[]).map(s=>`
+    <div class="iter-row">
+      <div class="iter-row-icon">${s.icon}</div>
+      <div class="iter-row-text">${s.text}</div>
+    </div>`).join('');
+
+  let sqlHtml = '';
+  if(data.sql){
+    sqlHtml = `<div class="sql-snip"><span class="kw">SELECT</span> <span style="color:#b0b8e0">${data.sql.replace(/SELECT\s*/,'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span></div>`;
+  }
+
+  const statusClass = data.status||'s-running';
+  const statusLabel = {
+    's-running':'running','s-ok':'success','s-err':'error','s-retry':'retrying'
+  }[statusClass]||'running';
+
+  card.innerHTML = `
+    <div class="iter-head">
+      <div class="iter-n">${iterNum}</div>
+      <div class="iter-label">${data.label}</div>
+      <div class="iter-status ${statusClass}">${statusLabel}</div>
+    </div>
+    <div class="iter-body">
+      ${stepsHtml}
+      ${sqlHtml}
+    </div>`;
+  panel.appendChild(card);
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function startLoop(){
+  if(loopRunning) return;
+  loopRunning = true;
+  document.getElementById('btn-run').disabled = true;
+  document.getElementById('btn-stop').disabled = false;
+  document.getElementById('iter-panel').innerHTML = '';
+
+  const sc = SCENARIOS[currentScenario];
+  const total = sc.iterations.length + 1;
+  updateStatus('Initialising…', 0, total, '—', '0', 'run');
+
+  // Start SVG node animation
+  startNodeLoop(sc.nodes || ['hl-init','hl-llm']);
+
+  // Show iterations with delays
+  for(let i=0; i<sc.iterations.length; i++){
+    if(!loopRunning) break;
+    await sleep(900);
+    if(!loopRunning) break;
+    updateStatus(sc.iterations[i].label, i+1, total, '—', (i+1)*340+'', 'run');
+    addIterCard(sc.iterations[i], i+1);
+    await sleep(1400);
+  }
+
+  if(!loopRunning) return;
+
+  // Final
+  const lastIter = sc.iterations[sc.iterations.length-1];
+  const isSuccess = lastIter && lastIter.kind==='ok';
+  clearInterval(nodeTimer);
+  clearNodes();
+
+  if(isSuccess){
+    const el = document.getElementById('hl-result');
+    if(el) el.setAttribute('opacity','1');
+    updateStatus('✓ Complete', sc.iterations.length, total, '0.91','1840', 'ok');
+  } else {
+    updateStatus('✗ Exhausted', sc.iterations.length, total, '0.0','0','err');
+  }
+
+  loopRunning = false;
+  document.getElementById('btn-run').disabled = false;
+  document.getElementById('btn-stop').disabled = true;
+}
+
+function stopLoop(){
+  loopRunning = false;
+  clearInterval(nodeTimer);
+  clearNodes();
+  document.getElementById('btn-run').disabled = false;
+  document.getElementById('btn-stop').disabled = true;
+  updateStatus('Stopped','—','—','—','—','idle');
+}
+
+function resetLoop(){
+  stopLoop();
+  document.getElementById('iter-panel').innerHTML = `<div style="font-family:var(--mono);font-size:11px;color:var(--dim);text-align:center;padding:40px 0;">Select a scenario and hit ▶ Run loop</div>`;
+  updateStatus('Idle','0','5','—','0','idle');
+  document.getElementById('prog').style.width='0%';
+}
+
+function sleep(ms){ return new Promise(r=>loopTimer=setTimeout(r,ms)); }
+</script>
+</body>
+</html>

@@ -16,9 +16,9 @@ SCHEMA: dict[str, Any] = {
     "function": {
         "name": "search_data_values",
         "description": (
-            "Search for a keyword across all string columns of the given tables. "
+            "Search for a keyword across all string columns of the database. "
             "Use this when the user mentions a specific value (like a name, category, or type) "
-            "but you don't know which column it belongs to or what the exact casing/spelling is."
+            "but you don't know which column or table it belongs to, or what the exact casing/spelling is."
         ),
         "parameters": {
             "type": "object",
@@ -30,10 +30,10 @@ SCHEMA: dict[str, Any] = {
                 "tables": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of table names to search in.",
+                    "description": "Optional list of table names to search in. If not provided, scans all registered tables in the database.",
                 },
             },
-            "required": ["keyword", "tables"],
+            "required": ["keyword"],
         },
     },
 }
@@ -41,11 +41,13 @@ SCHEMA: dict[str, Any] = {
 
 async def search_data_values(
     keyword: str,
-    tables: list[str],
+    tables: list[str] | None = None,
     *,
     model: "ModelFacade",
 ) -> list[dict[str, Any]]:
     """
     Returns: [{"table": "...", "column": "...", "matched_value": "..."}]
     """
+    if not tables:
+        tables = [t.qualified_name for t in model.registry.all_tables()]
     return await model.search_data_values(keyword, tables)
