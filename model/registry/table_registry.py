@@ -29,6 +29,8 @@ class ColumnMeta:
     description: str = ""
     synonyms: list[str] = field(default_factory=list)
     default_value: str | None = None
+    check_constraint: str | None = None
+    has_index: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -41,6 +43,9 @@ class ColumnMeta:
             "foreign_column": self.foreign_column,
             "description": self.description,
             "synonyms": self.synonyms,
+            "default_value": self.default_value,
+            "check_constraint": self.check_constraint,
+            "has_index": self.has_index,
         }
 
 

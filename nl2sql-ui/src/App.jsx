@@ -4,6 +4,7 @@ import ChatArea from './components/ChatArea';
 import TablesView from './components/TablesView';
 import HistoryView from './components/HistoryView';
 import TableDetail from './components/TableDetail';
+import SchemaDesigner from './components/SchemaDesigner';
 import { api } from './services/api';
 
 function App() {
@@ -14,6 +15,23 @@ function App() {
   // Chat state lifted to preserve history across view switches
   const [chatMessages, setChatMessages] = useState([]);
   const [explainMode, setExplainMode] = useState(false);
+  const [activeModule, setActiveModule] = useState(null); // Lifted to coordinate with sidebar
+
+  // Splash screen state
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashFade, setSplashFade] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashFade(true);
+      const removeTimer = setTimeout(() => {
+        setShowSplash(false);
+      }, 800); // Matches CSS transition duration
+      return () => clearTimeout(removeTimer);
+    }, 4000); // Show splash for 4 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     fetchHealth();
@@ -41,6 +59,8 @@ function App() {
         return <TableDetail table={selectedTable} onBack={() => setCurrentView('tables')} />;
       case 'history': 
         return <HistoryView onSelectQuery={(q) => setCurrentView('chat')} />;
+      case 'schema_designer':
+        return <SchemaDesigner />;
       case 'chat':
       default:
         return (
@@ -49,6 +69,8 @@ function App() {
             setMessages={setChatMessages}
             explainMode={explainMode}
             setExplainMode={setExplainMode}
+            activeModule={activeModule}
+            setActiveModule={setActiveModule}
           />
         );
     }
@@ -57,15 +79,35 @@ function App() {
   const handleNewChat = () => {
     setChatMessages([]);
     setCurrentView('chat');
+    setActiveModule(null);
+  };
+
+  const handleSelectOperation = (op) => {
+    setChatMessages([]);
+    setCurrentView('chat');
+    setActiveModule(op);
   };
 
   return (
     <>
+      {showSplash && (
+        <div className={`splash-container ${splashFade ? 'fade-out' : ''}`}>
+          <div className="splash-content">
+            <h1 className="splash-logo">NL2SQL</h1>
+            <div className="splash-subtitle">Intelligent Query Engine</div>
+            <div className="splash-loader">
+              <div className="splash-loader-bar"></div>
+            </div>
+          </div>
+        </div>
+      )}
       <Sidebar 
         currentView={currentView} 
         onNavigate={setCurrentView} 
         onNewChat={handleNewChat}
         health={health} 
+        activeModule={activeModule}
+        onSelectOperation={handleSelectOperation}
       />
       <main className="main-content">
         <header className="topbar">
@@ -74,6 +116,7 @@ function App() {
               {currentView === 'chat' && 'Query Chat'}
               {currentView === 'tables' && 'Schema Explorer'}
               {currentView === 'table_detail' && `Table: ${selectedTable?.name}`}
+              {currentView === 'schema_designer' && 'Schema Designer'}
               {currentView === 'history' && 'Query History'}
             </span>
           </h2>

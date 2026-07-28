@@ -30,3 +30,56 @@ class QueryRequest(BaseModel):
     options: QueryOptions = Field(default_factory=QueryOptions)
 
     model_config = {"json_schema_extra": {"example": {"nl_query": "Show all orders placed today"}}}
+
+
+class ColumnDefinition(BaseModel):
+    name: str = Field(..., min_length=1, max_length=63)
+    type: str = Field(..., min_length=1, max_length=63)
+    nullable: bool = Field(default=True)
+    is_primary_key: bool = Field(default=False)
+    is_unique: bool = Field(default=False)
+    default_value: str | None = Field(default=None, max_length=128)
+    check_constraint: str | None = Field(default=None, max_length=255)
+    foreign_key_table: str | None = Field(default=None, max_length=128)
+    foreign_key_column: str | None = Field(default=None, max_length=63)
+    has_index: bool = Field(default=False)
+
+
+class CreateTableRequest(BaseModel):
+    fqn: str = Field(..., min_length=3, max_length=128)
+    columns: list[ColumnDefinition] = Field(..., min_items=1)
+
+
+class AddColumnRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=63)
+    type: str = Field(..., min_length=1, max_length=63)
+
+
+class RenameColumnRequest(BaseModel):
+    new_name: str = Field(..., min_length=1, max_length=63)
+
+
+class ChangeColumnTypeRequest(BaseModel):
+    new_type: str = Field(..., min_length=1, max_length=63)
+
+
+class ColumnAlterDefinition(BaseModel):
+    name: str = Field(..., min_length=1, max_length=63)
+    type: str = Field(..., min_length=1, max_length=63)
+    nullable: bool = Field(default=True)
+    is_primary_key: bool = Field(default=False)
+    is_unique: bool = Field(default=False)
+    default_value: str | None = Field(default=None, max_length=128)
+    original_name: str | None = Field(default=None, max_length=63)
+    check_constraint: str | None = Field(default=None, max_length=255)
+    foreign_key_table: str | None = Field(default=None, max_length=128)
+    foreign_key_column: str | None = Field(default=None, max_length=63)
+    has_index: bool = Field(default=False)
+
+
+class AlterTableRequest(BaseModel):
+    columns: list[ColumnAlterDefinition] = Field(..., min_items=1)
+
+
+class GenerateAISchemaRequest(BaseModel):
+    prompt: str = Field(..., min_length=5, max_length=1000)

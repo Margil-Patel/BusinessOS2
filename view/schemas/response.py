@@ -83,3 +83,61 @@ class HealthResponse(BaseModel):
     db_connected: bool
     tables_loaded: int
     version: str = "1.0.0"
+
+
+class SchemaOperationResponse(BaseModel):
+    success: bool
+    message: str
+    data: dict[str, Any] | None = None
+
+
+class ForeignKeyDependency(BaseModel):
+    table: str
+    column: str
+    referenced_column: str
+    constraint: str
+
+
+class DeletionSafetyResponse(BaseModel):
+    success: bool
+    safe: bool
+    has_data: bool
+    row_count: int
+    dependent_fks: list[ForeignKeyDependency] = Field(default_factory=list)
+    indexes: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class SchemaVersionEntry(BaseModel):
+    id: int
+    fqn: str
+    version: int
+    created_at: str
+    author: str
+    ddl: str
+    snapshot: list[dict[str, Any]]
+    summary: str
+
+
+class SchemaVersionsListResponse(BaseModel):
+    success: bool
+    versions: list[SchemaVersionEntry]
+
+
+class ProposedColumn(BaseModel):
+    name: str
+    type: str
+    nullable: bool
+    is_primary_key: bool
+    is_unique: bool
+    default_value: str
+    check_constraint: str
+    foreign_key_table: str
+    foreign_key_column: str
+    has_index: bool
+
+
+class AISchemaProposalResponse(BaseModel):
+    success: bool
+    fqn: str
+    columns: list[ProposedColumn]

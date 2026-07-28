@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from config.settings import get_settings
 from controller.query_controller import QueryController
+from controller.schema_service import SchemaService
 from model.facade import ModelFacade
 from view.api.middleware import APIKeyMiddleware, RequestLoggingMiddleware
 from view.api.routes import router
@@ -62,10 +63,12 @@ async def lifespan(app: FastAPI):
 
     # Create controller
     controller = QueryController(model, settings)
+    schema_service = SchemaService(model)
 
     # Store in app state (View layer accesses via Depends)
     app.state.model = model
     app.state.controller = controller
+    app.state.schema_service = schema_service
     app.state.settings = settings
 
     logger.info("=== NL2SQL Engine ready ===")

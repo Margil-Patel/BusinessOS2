@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import OdometerCell from './OdometerCell';
 
 const TableDetail = ({ table, onBack }) => {
   const [data, setData] = useState(null);
@@ -86,7 +87,14 @@ const TableDetail = ({ table, onBack }) => {
                 {data.rows.map((row, i) => (
                   <tr key={i}>
                     {data.columns.map(col => (
-                      <td key={col}>{row[col]?.toString() || <span style={{opacity: 0.3}}>null</span>}</td>
+                      <td key={col}>
+                        <OdometerCell 
+                          value={row[col]} 
+                          columnName={col} 
+                          tableName={table.qualified_name} 
+                          rowId={row.tile_id || row.tile_name || row.id || row[data.columns[0]] || i} 
+                        />
+                      </td>
                     ))}
                   </tr>
                 ))}

@@ -1,4 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import OdometerCell from './OdometerCell';
+
+const extractTableName = (sql) => {
+  if (!sql) return 'unknown';
+  const match = sql.match(/from\s+([a-zA-Z0-9_\.]+)/i);
+  return match ? match[1] : 'unknown';
+};
 
 const Header = ({ rowCount }) => {
   return (
@@ -48,7 +55,7 @@ const Actions = ({ showSql, setShowSql, showResults, setShowResults, hasRows, is
   );
 };
 
-const PreviewTable = ({ columns, rows }) => {
+const PreviewTable = ({ columns, rows, tableName }) => {
   if (!rows || rows.length === 0) return null;
 
   return (
@@ -66,7 +73,12 @@ const PreviewTable = ({ columns, rows }) => {
               <tr key={i}>
                 {columns.map(col => (
                   <td key={col}>
-                    {row[col] !== undefined && row[col] !== null ? row[col].toString() : 'null'}
+                    <OdometerCell 
+                      value={row[col]} 
+                      columnName={col} 
+                      tableName={tableName} 
+                      rowId={row.tile_id || row.tile_name || row.id || row[columns[0]] || i} 
+                    />
                   </td>
                 ))}
               </tr>
@@ -78,7 +90,7 @@ const PreviewTable = ({ columns, rows }) => {
   );
 };
 
-const ExpandableResultsTable = ({ columns, rows, expanded }) => {
+const ExpandableResultsTable = ({ columns, rows, expanded, tableName }) => {
   if (!rows || rows.length === 0) return null;
 
   return (
@@ -97,7 +109,12 @@ const ExpandableResultsTable = ({ columns, rows, expanded }) => {
             <tr key={i}>
               {columns.map(col => (
                 <td key={col}>
-                  {row[col] !== undefined && row[col] !== null ? row[col].toString() : 'null'}
+                  <OdometerCell 
+                    value={row[col]} 
+                    columnName={col} 
+                    tableName={tableName} 
+                    rowId={row.tile_id || row.tile_name || row.id || row[columns[0]] || i} 
+                  />
                 </td>
               ))}
             </tr>
@@ -181,6 +198,7 @@ const ResponseCard = ({ msg }) => {
   const { sql, rows, columns, error, full_rows, full_columns } = msg.data;
   const hasRows = rows && rows.length > 0;
   const isSingleCell = hasRows && rows.length === 1 && columns && columns.length === 1;
+  const tableName = extractTableName(sql);
 
   return (
     <div ref={cardRef} className="chat-message message-ai ai-bubble">
@@ -222,12 +240,13 @@ const ResponseCard = ({ msg }) => {
                   {getSentenceAnswer(columns, rows)}
                 </div>
               ) : (
-                <PreviewTable columns={columns || []} rows={rows} />
+                <PreviewTable columns={columns || []} rows={rows} tableName={tableName} />
               )}
               <ExpandableResultsTable 
                 columns={full_columns || columns || []} 
                 rows={full_rows || rows} 
                 expanded={showResults} 
+                tableName={tableName}
               />
             </>
           ) : (

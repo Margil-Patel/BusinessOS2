@@ -115,14 +115,43 @@ class SchemaLoader:
             insp = inspect(sync_conn)
             raw_cols = insp.get_columns(table_name, schema=schema_name)
             pk_cols = set(insp.get_pk_constraint(table_name, schema=schema_name).get("constrained_columns", []))
+            
+            # Fetch indexes to check has_index
+            index_cols = set()
+            try:
+                for idx in insp.get_indexes(table_name, schema=schema_name):
+                    for col_name in idx.get("column_names", []):
+                        if col_name:
+                            index_cols.add(col_name)
+            except Exception:
+                pass
+
+            # Fetch check constraints
+            check_map = {}
+            try:
+                for c in insp.get_check_constraints(table_name, schema=schema_name):
+                    sql_text = c.get("sqltext", "")
+                    if sql_text:
+                        clean_sql = sql_text.strip("()")
+                        # Match columns
+                        for col in raw_cols:
+                            col_name = col["name"]
+                            if re.search(rf'\b{col_name}\b', clean_sql) or f'"{col_name}"' in clean_sql:
+                                check_map[col_name] = clean_sql
+            except Exception:
+                pass
+
             fk_map: dict[str, dict[str, str]] = {}
             for fk in insp.get_foreign_keys(table_name, schema=schema_name):
+                ref_tbl = fk.get("referred_table", "")
+                ref_schema = fk.get("referred_schema") or schema_name
+                ref_fqn = f"{ref_schema}.{ref_tbl}" if ref_schema else ref_tbl
                 for local_col, ref_col in zip(
                     fk.get("constrained_columns", []),
                     fk.get("referred_columns", []),
                 ):
                     fk_map[local_col] = {
-                        "table": fk.get("referred_table", ""),
+                        "table": ref_fqn,
                         "column": ref_col,
                     }
             result = []
@@ -139,6 +168,8 @@ class SchemaLoader:
                         foreign_table=fk_info.get("table"),
                         foreign_column=fk_info.get("column"),
                         default_value=str(col.get("default")) if col.get("default") is not None else None,
+                        check_constraint=check_map.get(name),
+                        has_index=name in index_cols,
                     )
                 )
             return result
