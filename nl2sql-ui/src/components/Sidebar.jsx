@@ -52,6 +52,17 @@ const Sidebar = ({ currentView, onNavigate, onNewChat, health, activeModule, onS
           Schema Designer
         </button>
         <button 
+          className={`nav-item ${currentView === 'data_view' ? 'active' : ''}`}
+          onClick={() => onNavigate('data_view')}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M3 9h18M9 3v18"/>
+            <path d="M15 3v18"/>
+          </svg>
+          Data Viewer
+        </button>
+        <button 
           className={`nav-item ${currentView === 'history' ? 'active' : ''}`}
           onClick={() => onNavigate('history')}
         >

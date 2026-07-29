@@ -295,6 +295,16 @@ class ToolOrchestrator:
 
             messages.extend(tool_results)
 
+        # Ensure full column schema metadata is loaded for all tables in context
+        missing_schemas = [
+            t["qualified_name"] for t in context.tables_found 
+            if t.get("qualified_name") and t["qualified_name"] not in context.schemas
+        ]
+        if missing_schemas:
+            schema_results = await self._dispatch("get_table_schema", {"table_names": missing_schemas})
+            if isinstance(schema_results, dict) and schema_results:
+                self._accumulate(context, "get_table_schema", {"table_names": missing_schemas}, schema_results)
+
         return context
 
     async def _dispatch(self, fn_name: str, args: dict[str, Any]) -> Any:

@@ -141,3 +141,57 @@ class AISchemaProposalResponse(BaseModel):
     success: bool
     fqn: str
     columns: list[ProposedColumn]
+
+
+# ── Dynamic Data Management ───────────────────────────────────────────────────
+
+class ColumnMeta(BaseModel):
+    """Metadata for a single column returned by GET /data/schema/{fqn}."""
+    name: str
+    data_type: str
+    nullable: bool
+    default_value: str | None = None
+    is_primary_key: bool = False
+    is_unique: bool = False
+    foreign_key_table: str | None = None
+    foreign_key_column: str | None = None
+
+
+class TableSchemaResponse(BaseModel):
+    """Response for GET /data/schema/{fqn}."""
+    success: bool
+    fqn: str
+    columns: list[ColumnMeta]
+
+
+class TableRowsResponse(BaseModel):
+    """Response for GET /data/{fqn}/rows."""
+    success: bool
+    fqn: str
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    columns: list[str] = Field(default_factory=list)
+    row_count: int
+    page: int
+    page_size: int
+    total_count: int
+
+
+class BulkInsertResponse(BaseModel):
+    """Response for POST /data/{fqn}/bulk_insert."""
+    success: bool
+    inserted_count: int
+    message: str
+
+
+class BulkUpdateResponse(BaseModel):
+    """Response for PUT /data/{fqn}/bulk_update."""
+    success: bool
+    updated_count: int
+    message: str
+
+
+class BulkDeleteResponse(BaseModel):
+    """Response for DELETE /data/{fqn}/rows."""
+    success: bool
+    deleted_count: int
+    message: str

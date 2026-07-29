@@ -109,7 +109,7 @@ class SchemaService:
                 default_val = col_data.get("default_value")
                 if default_val is not None and default_val != "":
                     # Validate default value structure to prevent SQL injection
-                    if not re.match(r"^[a-zA-Z0-9_'\"\s\(\):\-\+\*\/]*$", str(default_val)):
+                    if not re.match(r"^[a-zA-Z0-9_\s\(\)<>=\!,\.\'\-\+\*\/\"&|%:]*$", str(default_val)):
                         raise ValueError(f"Invalid characters in default value: {default_val}")
                     parts.append(f"DEFAULT {default_val}")
 
@@ -486,7 +486,7 @@ class SchemaService:
                 if not nullable:
                     parts.append("NOT NULL")
                 if default_val is not None and default_val != "":
-                    if not re.match(r"^[a-zA-Z0-9_'\"\s\(\):\-\+\*\/]*$", str(default_val)):
+                    if not re.match(r"^[a-zA-Z0-9_\s\(\)<>=\!,\.\'\-\+\*\/\"&|%:]*$", str(default_val)):
                         raise ValueError(f"Invalid default value: {default_val}")
                     parts.append(f"DEFAULT {default_val}")
                 
@@ -553,11 +553,12 @@ class SchemaService:
                 # Check Default Value change
                 curr_default = current_col.default_value
                 if default_val is not None and default_val != "":
-                    if not re.match(r"^[a-zA-Z0-9_'\"\s\(\):\-\+\*\/]*$", str(default_val)):
+                    if not re.match(r"^[a-zA-Z0-9_\s\(\)<>=\!,\.\'\-\+\*\/\"&|%:]*$", str(default_val)):
                         raise ValueError(f"Invalid default value: {default_val}")
-                    ddl_statements.append(f'ALTER TABLE "{schema}"."{table}" ALTER COLUMN "{name}" SET DEFAULT {default_val}')
-                    summaries.append(f"Set default of {name} to {default_val}")
-                elif curr_default is not None:
+                    if str(curr_default or "").strip() != str(default_val).strip():
+                        ddl_statements.append(f'ALTER TABLE "{schema}"."{table}" ALTER COLUMN "{name}" SET DEFAULT {default_val}')
+                        summaries.append(f"Set default of {name} to {default_val}")
+                elif curr_default is not None and (default_val is None or default_val == ""):
                     ddl_statements.append(f'ALTER TABLE "{schema}"."{table}" ALTER COLUMN "{name}" DROP DEFAULT')
                     summaries.append(f"Removed default from {name}")
 

@@ -34,7 +34,7 @@ from openai import AsyncOpenAI
 from controller.intent_parser import IntentParser
 from controller.loop_state import LoopState
 from controller.self_corrector import SelfCorrector
-from controller.sql_generator import SQLGenerator
+from controller.sql_generator import SQLGenerator, quote_sql_identifiers
 from controller.sql_validator import SQLValidationError, SQLValidator, UnsafeQueryError
 from controller.tool_orchestrator import SchemaContext, ToolOrchestrator
 
@@ -183,6 +183,7 @@ class AgenticLoop:
                 sql = await self._generator.generate(
                     intent, schema_context, history=augmented_history, reasoning_analysis=reasoning_analysis
                 )
+                sql = quote_sql_identifiers(sql, schema_context)
                 state.sql_attempts.append(sql)
             except ValueError as exc:
                 if str(exc).startswith("ERROR:"):
@@ -243,6 +244,7 @@ class AgenticLoop:
                 )
 
                 if corrected:
+                    corrected = quote_sql_identifiers(corrected, schema_context)
                     # Re-validate the corrected SQL before continuing
                     try:
                         self._validator.check(corrected, db_id, registry=self._model.registry)
@@ -295,7 +297,31 @@ class AgenticLoop:
                     state.iteration, err_msg,
                 )
                 state.add_error("runtime", err_msg)
-                # Continue to next iteration — LLM will see this error
+                
+                corrected = await self._corrector.correct(
+                    bad_sql=sql,
+                    error=err_msg,
+                    state=state,
+                    schema_context_text=schema_context.to_prompt_text() if schema_context else "",
+                    max_attempts=self._max_corrections,
+                )
+                if corrected:
+                    corrected = quote_sql_identifiers(corrected, schema_context)
+                    try:
+                        self._validator.check(corrected, db_id, registry=self._model.registry)
+                        rows = await self._model.db.execute(corrected)
+                        state.final_sql = corrected
+                        state.rows = rows
+                        state.confidence = self._score_confidence(state)
+                        state.success = True
+                        logger.info(
+                            "[AgenticLoop] Runtime self-correction succeeded on iter %d | rows=%d",
+                            state.iteration, len(rows),
+                        )
+                        break
+                    except Exception as re_exc:
+                        state.add_error("runtime_after_correction", str(re_exc))
+                        continue
 
         state.finalize()
         logger.info("Final SQL:\n%s", state.final_sql or "None")

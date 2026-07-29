@@ -1190,7 +1190,118 @@ th {
   border-color: var(--accent);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Spreadsheet Component Styles
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Skeleton shimmer */
+@keyframes ss-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.ss-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(48, 54, 61, 0.4) 25%,
+    rgba(72, 80, 90, 0.5) 50%,
+    rgba(48, 54, 61, 0.4) 75%
+  );
+  background-size: 600px 100%;
+  animation: ss-shimmer 1.4s ease-in-out infinite;
+  border-radius: 3px;
+}
+
+/* Row hover */
+.ss-row:hover {
+  background: rgba(47, 129, 247, 0.05) !important;
+}
+
+/* Skeleton rows — staggered fade in */
+.ss-row-skeleton {
+  animation: ss-row-fade 0.4s ease-out both;
+}
+
+@keyframes ss-row-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Header cell hover */
+.ss-header-cell:hover {
+  background: rgba(47, 129, 247, 0.06);
+}
+
+/* Resize handle hover indicator */
+.ss-resize-handle:hover,
+.ss-resize-handle:active {
+  background: rgba(47, 129, 247, 0.5);
+}
+
+/* Grid scrollbar styling (inherits global but tighter) */
+.ss-grid-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.ss-grid-container::-webkit-scrollbar-thumb {
+  background: rgba(48, 54, 61, 0.8);
+  border-radius: 3px;
+}
+
+.ss-grid-container::-webkit-scrollbar-corner {
+  background: transparent;
+}
 
 
+/* ═══════════════════════════════════════════════════════════════
+   Spreadsheet Editing Styles
+   ═══════════════════════════════════════════════════════════════ */
 
+/* Remove number input spinners */
+.ss-grid-container input[type="number"]::-webkit-outer-spin-button,
+.ss-grid-container input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.ss-grid-container input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Dark color-scheme for date/time pickers */
+.ss-grid-container input[type="date"],
+.ss-grid-container input[type="time"],
+.ss-grid-container input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+/* Editing cell pulse */
+@keyframes ss-edit-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(47, 129, 247, 0.4); }
+  70%  { box-shadow: 0 0 0 4px rgba(47, 129, 247, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(47, 129, 247, 0); }
+}
+
+/* Save confirmation fade-in */
+@keyframes ss-fade-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Add Row button hover */
+.ss-grid-container button:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+/* Dirty row left border transition */
+.ss-row {
+  transition: background 0.08s, border-left-color 0.2s;
+}
+
+/* Spinner rotation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
 

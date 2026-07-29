@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from controller.query_controller import QueryController
 from controller.schema_service import SchemaService
+from controller.data_service import DataService, DataServiceError
 from controller.sql_validator import SQLValidationError, UnsafeQueryError
 from view.schemas.request import (
     QueryRequest,
@@ -22,8 +23,24 @@ from view.schemas.request import (
     ChangeColumnTypeRequest,
     AlterTableRequest,
     GenerateAISchemaRequest,
+    BulkInsertRequest,
+    BulkUpdateRequest,
+    BulkDeleteRequest,
 )
-from view.schemas.response import HealthResponse, QueryResponse, SchemaOperationResponse, DeletionSafetyResponse, SchemaVersionsListResponse, AISchemaProposalResponse
+from view.schemas.response import (
+    HealthResponse,
+    QueryResponse,
+    SchemaOperationResponse,
+    DeletionSafetyResponse,
+    SchemaVersionsListResponse,
+    AISchemaProposalResponse,
+    TableSchemaResponse,
+    TableRowsResponse,
+    BulkInsertResponse,
+    BulkUpdateResponse,
+    BulkDeleteResponse,
+    ColumnMeta,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -45,6 +62,13 @@ def get_schema_service(request: Request) -> SchemaService:
         from controller.schema_service import SchemaService
         request.app.state.schema_service = SchemaService(request.app.state.model)
     return request.app.state.schema_service
+
+
+def get_data_service(request: Request) -> DataService:
+    """FastAPI dependency — retrieves data service from app state."""
+    if not hasattr(request.app.state, "data_service"):
+        request.app.state.data_service = DataService(request.app.state.model)
+    return request.app.state.data_service
 
 
 @router.post("/query", response_model=QueryResponse, summary="Convert natural language to SQL and execute")
@@ -433,4 +457,172 @@ async def generate_proposed_schema(
         )
     except Exception as exc:
         logger.exception("Error generating proposed schema from natural language: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Dynamic Data Management — /data/ endpoints
+# ════════════════════════════════════════════════════════════════════════════
+
+@router.get(
+    "/data/schema/{fqn:path}",
+    response_model=TableSchemaResponse,
+    summary="Introspect table schema from information_schema",
+)
+async def get_data_schema(
+    fqn: str,
+    data_service: DataService = Depends(get_data_service),
+) -> TableSchemaResponse:
+    """
+    Return full column metadata for any registered table:
+    name, data_type, nullable, default_value, is_primary_key,
+    foreign_key_table, foreign_key_column.
+    """
+    try:
+        result = await data_service.get_table_schema(fqn)
+        columns = [
+            ColumnMeta(
+                name=c["name"],
+                data_type=c["data_type"],
+                nullable=c["nullable"],
+                default_value=c["default_value"],
+                is_primary_key=c["is_primary_key"],
+                is_unique=c.get("is_unique", False),
+                foreign_key_table=c["foreign_key_table"],
+                foreign_key_column=c["foreign_key_column"],
+            )
+            for c in result["columns"]
+        ]
+        return TableSchemaResponse(success=True, fqn=fqn, columns=columns)
+    except DataServiceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Error retrieving schema for %s: %s", fqn, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get(
+    "/data/{fqn:path}/rows",
+    response_model=TableRowsResponse,
+    summary="Retrieve paginated rows from any table",
+)
+async def get_table_rows(
+    fqn: str,
+    page: int = 1,
+    page_size: int = 50,
+    data_service: DataService = Depends(get_data_service),
+) -> TableRowsResponse:
+    """
+    Return rows from the specified table with pagination.
+
+    - ``page``      : 1-indexed page number (default 1)
+    - ``page_size`` : rows per page (default 50, max 1000)
+    """
+    try:
+        result = await data_service.get_table_rows(fqn, page=page, page_size=page_size)
+        return TableRowsResponse(
+            success=True,
+            fqn=result["fqn"],
+            rows=result["rows"],
+            columns=result["columns"],
+            row_count=result["row_count"],
+            page=result["page"],
+            page_size=result["page_size"],
+            total_count=result["total_count"],
+        )
+    except DataServiceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Error retrieving rows for %s: %s", fqn, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post(
+    "/data/{fqn:path}/bulk_insert",
+    response_model=BulkInsertResponse,
+    summary="Bulk-insert rows into any table (transactional)",
+)
+async def bulk_insert(
+    fqn: str,
+    req: BulkInsertRequest,
+    data_service: DataService = Depends(get_data_service),
+) -> BulkInsertResponse:
+    """
+    Insert an array of row objects into the table inside one PostgreSQL transaction.
+    The entire batch rolls back if any row fails validation or insertion.
+    """
+    try:
+        inserted = await data_service.bulk_insert(fqn, req.rows)
+        return BulkInsertResponse(
+            success=True,
+            inserted_count=inserted,
+            message=f"Successfully inserted {inserted} row(s) into {fqn}",
+        )
+    except DataServiceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Error during bulk_insert into %s: %s", fqn, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.put(
+    "/data/{fqn:path}/bulk_update",
+    response_model=BulkUpdateResponse,
+    summary="Bulk-update rows in any table (transactional)",
+)
+async def bulk_update(
+    fqn: str,
+    req: BulkUpdateRequest,
+    data_service: DataService = Depends(get_data_service),
+) -> BulkUpdateResponse:
+    """
+    Update multiple rows by primary key inside one PostgreSQL transaction.
+    Each entry specifies pk_column, pk_value, and an updates dict.
+    """
+    try:
+        rows_payload = [
+            {
+                "pk_column": r.pk_column,
+                "pk_value":  r.pk_value,
+                "updates":   r.updates,
+            }
+            for r in req.rows
+        ]
+        updated = await data_service.bulk_update(fqn, rows_payload)
+        return BulkUpdateResponse(
+            success=True,
+            updated_count=updated,
+            message=f"Successfully updated {updated} row(s) in {fqn}",
+        )
+    except DataServiceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Error during bulk_update in %s: %s", fqn, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.delete(
+    "/data/{fqn:path}/rows",
+    response_model=BulkDeleteResponse,
+    summary="Delete rows from any table by primary key (transactional)",
+)
+async def bulk_delete(
+    fqn: str,
+    req: BulkDeleteRequest,
+    data_service: DataService = Depends(get_data_service),
+) -> BulkDeleteResponse:
+    """
+    Delete rows identified by a list of primary key values, inside one transaction.
+    """
+    try:
+        deleted = await data_service.bulk_delete(fqn, req.pk_column, req.pk_values)
+        return BulkDeleteResponse(
+            success=True,
+            deleted_count=deleted,
+            message=f"Successfully deleted {deleted} row(s) from {fqn}",
+        )
+    except DataServiceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Error during bulk_delete from %s: %s", fqn, exc)
         raise HTTPException(status_code=500, detail=str(exc))

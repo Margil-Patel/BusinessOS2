@@ -126,6 +126,16 @@ class SchemaLoader:
             except Exception:
                 pass
 
+            # Fetch unique constraints
+            unique_cols = set()
+            try:
+                for uq in insp.get_unique_constraints(table_name, schema=schema_name):
+                    for col_name in uq.get("column_names", []):
+                        if col_name:
+                            unique_cols.add(col_name)
+            except Exception:
+                pass
+
             # Fetch check constraints
             check_map = {}
             try:
@@ -164,6 +174,7 @@ class SchemaLoader:
                         data_type=str(col.get("type", "unknown")),
                         nullable=col.get("nullable", True),
                         is_primary_key=name in pk_cols,
+                        is_unique=name in unique_cols,
                         is_foreign_key=bool(fk_info),
                         foreign_table=fk_info.get("table"),
                         foreign_column=fk_info.get("column"),
