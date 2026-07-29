@@ -41,9 +41,45 @@ RULES (non-negotiable):
 11. When the user uses pronouns like "that", "those", or "them" (e.g., "show me those"), refer to the entities AND the filters (WHERE clause) used in the previous turn of the conversation. If the previous query filtered for "Glossy" tiles, a follow-up of "show me them" should also include the "Glossy" filter.
 12. For PostgreSQL, 'ILIKE' is the preferred way to perform case-insensitive pattern matching.
 13. CRITICAL: If the user's question requires querying information or entities (such as "buyers", "customers", "orders", "sales", "transactions", "invoices", etc.) that are not present in the tables or columns of the SCHEMA CONTEXT, you MUST NOT generate any SQL query. Instead, you MUST respond with: ERROR: The database does not contain tables or columns containing information about <entity_name> (e.g. buyers).
+14. CRITICAL FOR POSTGRESQL IDENTIFIERS: Always enclose column names and table names in double quotes if they contain uppercase or mixed-case characters (e.g. "Name", "Enrollment", "Sr_No", "public"."student"). Unquoted identifiers in PostgreSQL are automatically folded to lowercase (e.g. Name becomes name), causing "column does not exist" errors when database columns have uppercase or mixed-case letters.
 
 DIALECT: {dialect}
 """
+
+
+def quote_sql_identifiers(sql: str, context: SchemaContext | None = None) -> str:
+    """
+    Ensure column and table names with mixed or uppercase letters are double-quoted for PostgreSQL.
+    Unquoted identifiers in PostgreSQL are automatically converted to lowercase,
+    so mixed-case columns like `Name` or `Sr_No` must be double-quoted ("Name", "Sr_No").
+    """
+    if not sql or sql.startswith("ERROR:"):
+        return sql
+
+    cols_to_quote = set()
+    tables_to_quote = set()
+
+    if context and hasattr(context, "schemas"):
+        for tbl_name, info in context.schemas.items():
+            tbl_short = tbl_name.split(".")[-1]
+            if any(c.isupper() for c in tbl_short):
+                tables_to_quote.add(tbl_short)
+            for col in info.get("columns", []):
+                col_name = col.get("name", "")
+                if any(c.isupper() for c in col_name):
+                    cols_to_quote.add(col_name)
+
+    # Replace unquoted column names
+    for col_name in cols_to_quote:
+        pattern = rf'(?<!["\'])(\b{re.escape(col_name)}\b)(?!["\'])'
+        sql = re.sub(pattern, f'"{col_name}"', sql)
+
+    # Replace unquoted table names
+    for tbl_name in tables_to_quote:
+        pattern = rf'(?<!["\'])(\b{re.escape(tbl_name)}\b)(?!["\'])'
+        sql = re.sub(pattern, f'"{tbl_name}"', sql)
+
+    return sql
 
 
 class SQLGenerator:
@@ -124,6 +160,9 @@ class SQLGenerator:
 
         if sql.startswith("ERROR:"):
             raise ValueError(sql)
+
+        # Auto-quote any mixed/uppercase column identifiers matching context schemas
+        sql = quote_sql_identifiers(sql, context)
 
         logger.info("Generated SQL: %s", sql[:120])
         return sql

@@ -23,6 +23,7 @@ class ColumnMeta:
     data_type: str
     nullable: bool = True
     is_primary_key: bool = False
+    is_unique: bool = False
     is_foreign_key: bool = False
     foreign_table: str | None = None
     foreign_column: str | None = None
@@ -38,6 +39,7 @@ class ColumnMeta:
             "type": self.data_type,
             "nullable": self.nullable,
             "is_pk": self.is_primary_key,
+            "is_unique": self.is_unique,
             "is_fk": self.is_foreign_key,
             "foreign_table": self.foreign_table,
             "foreign_column": self.foreign_column,

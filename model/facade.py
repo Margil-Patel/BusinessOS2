@@ -85,6 +85,18 @@ class ModelFacade:
         if not self._synced:
             logger.warning("find_tables called before sync — results may be empty")
         matches: list[TableMatch] = await self.embeddings.search(query, top_k=top_k)
+        if not matches and self.registry:
+            all_tbls = self.registry.all_tables()
+            return [
+                {
+                    "qualified_name": t.qualified_name,
+                    "description": t.description,
+                    "score": 0.5,
+                    "domain_tags": t.domain_tags,
+                    "column_names": [c.name for c in t.columns],
+                }
+                for t in all_tbls[:top_k]
+            ]
         return [
             {
                 "qualified_name": m.qualified_name,

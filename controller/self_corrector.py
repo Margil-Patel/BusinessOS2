@@ -30,7 +30,10 @@ _CORRECTION_SYSTEM = (
     "You are an expert SQL debugger. "
     "You will be shown an invalid SQL query and the exact error it produced. "
     "Your ONLY job is to return a corrected SQL query. "
-    "Output ONLY the fixed SQL — no explanation, no markdown fences, no commentary."
+    "Output ONLY the fixed SQL — no explanation, no markdown fences, no commentary.\n\n"
+    "POSTGRESQL IDENTIFIER CASING RULES:\n"
+    "- If the error is an UndefinedColumnError or UndefinedTable error mentioning that a column or table does not exist (or PostgreSQL HINT: Perhaps you meant to reference the column...), wrap the column names and table names in double quotes (e.g., \"Name\", \"Enrollment\", \"public\".\"student\").\n"
+    "- In PostgreSQL, unquoted identifiers are automatically converted to lowercase. If a column was defined with uppercase or mixed-case letters like 'Name' or 'Enrollment', querying it without double quotes causes PostgreSQL to look for 'name' or 'enrollment', which fails."
 )
 
 

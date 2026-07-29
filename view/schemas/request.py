@@ -83,3 +83,46 @@ class AlterTableRequest(BaseModel):
 
 class GenerateAISchemaRequest(BaseModel):
     prompt: str = Field(..., min_length=5, max_length=1000)
+
+
+# ── Dynamic Data Management ───────────────────────────────────────────────────
+
+class BulkInsertRequest(BaseModel):
+    """Request body for POST /data/{fqn}/bulk_insert."""
+    rows: list[dict] = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Array of row objects to insert. Each key must be a valid column name.",
+    )
+
+
+class UpdateRow(BaseModel):
+    """A single row update specification."""
+    pk_column: str = Field(..., min_length=1, max_length=63, description="Primary key column name")
+    pk_value: object = Field(..., description="Primary key value to match in WHERE clause")
+    updates: dict = Field(
+        ...,
+        description="Dict of {column: new_value} pairs to apply in SET clause",
+    )
+
+
+class BulkUpdateRequest(BaseModel):
+    """Request body for PUT /data/{fqn}/bulk_update."""
+    rows: list[UpdateRow] = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Array of update operations, one per row.",
+    )
+
+
+class BulkDeleteRequest(BaseModel):
+    """Request body for DELETE /data/{fqn}/rows."""
+    pk_column: str = Field(..., min_length=1, max_length=63, description="Primary key column name")
+    pk_values: list = Field(
+        ...,
+        min_length=1,
+        max_length=1000,
+        description="List of primary key values identifying rows to delete.",
+    )

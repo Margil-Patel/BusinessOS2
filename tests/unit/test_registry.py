@@ -21,6 +21,31 @@ def make_table(name: str, schema: str = "public") -> TableMeta:
 
 
 class TestTableMeta:
+    def test_quote_sql_identifiers(self):
+        from controller.sql_generator import quote_sql_identifiers
+        from controller.tool_orchestrator import SchemaContext
+
+        ctx = SchemaContext(schemas={
+            "public.student": {
+                "columns": [
+                    {"name": "Sr_No", "type": "INTEGER"},
+                    {"name": "Name", "type": "VARCHAR"},
+                    {"name": "Enrollment", "type": "VARCHAR"},
+                ]
+            }
+        })
+        raw_sql = "SELECT Enrollment FROM public.student WHERE Name ILIKE 'Margil' LIMIT 500"
+        quoted = quote_sql_identifiers(raw_sql, ctx)
+        assert '"Enrollment"' in quoted
+        assert '"Name"' in quoted
+        assert "'Margil'" in quoted
+
+    def test_column_meta_is_unique(self):
+        c = ColumnMeta(name="email", data_type="VARCHAR", is_unique=True)
+        assert c.is_unique is True
+        d = c.to_dict()
+        assert d["is_unique"] is True
+
     def test_qualified_name(self):
         t = make_table("orders")
         assert t.qualified_name == "public.orders"
