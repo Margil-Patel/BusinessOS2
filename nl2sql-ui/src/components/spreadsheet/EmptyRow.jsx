@@ -17,7 +17,9 @@ const EmptyRow = ({ columns, columnWidths, rowIndex = 0 }) => {
       style={{
         display: 'flex',
         alignItems: 'stretch',
-        height: 34,
+        height: 46,
+        minWidth: 'max-content',
+        boxSizing: 'border-box',
         animationDelay: `${delay}ms`,
         borderBottom: '1px solid rgba(48,54,61,0.4)',
       }}

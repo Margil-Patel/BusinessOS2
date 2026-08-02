@@ -56,9 +56,11 @@ const SpreadsheetRow = memo(({
       style={{
         display: 'flex',
         alignItems: 'stretch',
-        height: 34,
+        height: 46,
+        boxSizing: 'border-box',
+        minWidth: 'max-content',
         background: bgColor,
-        borderBottom: '1px solid rgba(48,54,61,0.4)',
+        borderBottom: '1px solid var(--border-color)',
         borderLeft: isDirtyRow ? '3px solid var(--accent)' : '3px solid transparent',
         cursor: 'default',
         transition: 'background 0.08s',
@@ -75,19 +77,20 @@ const SpreadsheetRow = memo(({
         style={{
           width: 55,
           minWidth: 55,
+          boxSizing: 'border-box',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          borderRight: '1px solid rgba(48,54,61,0.6)',
+          borderRight: '1px solid var(--border-color)',
           flexShrink: 0,
-          fontSize: '0.72rem',
+          fontSize: '0.8rem',
           fontFamily: 'var(--font-mono)',
-          color: isRowChecked || isSelected ? 'var(--accent)' : 'rgba(139,148,158,0.5)',
-          background: isRowChecked ? 'rgba(47,129,247,0.15)' : isSelected ? 'rgba(47,129,247,0.06)' : 'rgba(8,10,14,0.6)',
+          color: isRowChecked || isSelected ? 'var(--accent)' : 'var(--text-secondary)',
+          background: isRowChecked ? 'rgba(47,129,247,0.15)' : isSelected ? 'rgba(47,129,247,0.06)' : '#0d1117',
           fontWeight: isRowChecked || isSelected ? 600 : 400,
           userSelect: 'none',
           cursor: 'pointer',
-          gap: 4,
+          gap: 6,
           position: 'sticky',
           left: 0,
           zIndex: 8,
@@ -100,28 +103,7 @@ const SpreadsheetRow = memo(({
           onClick={(e) => e.stopPropagation()}
           style={{ cursor: 'pointer', accentColor: 'var(--accent)', margin: 0 }}
         />
-
-        {hovered ? (
-          <button
-            title="Delete row"
-            onClick={(e) => { e.stopPropagation(); onDeleteRow?.(rowIndex); }}
-            style={{
-              background: 'rgba(248,81,73,0.12)',
-              border: '1px solid rgba(248,81,73,0.3)',
-              borderRadius: 3,
-              color: '#f85149',
-              fontSize: '0.65rem',
-              padding: '1px 3px',
-              cursor: 'pointer',
-              lineHeight: 1.2,
-              fontWeight: 700,
-            }}
-          >
-            ✕
-          </button>
-        ) : (
-          <span>{row._isNew ? '★' : rowNumber}</span>
-        )}
+        <span>{row._isNew ? '★' : rowNumber}</span>
       </div>
 
       {columns.map((col, colIdx) => {

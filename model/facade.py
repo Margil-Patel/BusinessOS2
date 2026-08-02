@@ -74,6 +74,9 @@ class ModelFacade:
         # Rebuild embedding index
         await self.embeddings.build(tables)
 
+        # Clear value index cache on schema sync so old cached values are invalidated
+        self.value_index.clear_all()
+
         self._synced = True
         logger.info("ModelFacade sync complete: %d tables", count)
         return count
@@ -84,9 +87,28 @@ class ModelFacade:
         """Semantic search — returns top_k table matches."""
         if not self._synced:
             logger.warning("find_tables called before sync — results may be empty")
-        matches: list[TableMatch] = await self.embeddings.search(query, top_k=top_k)
+        
+        all_active_tables = self.registry.all_tables() if self.registry else []
+        # If total active tables in registry is <= 15, return all active tables to ensure 100% recall
+        if len(all_active_tables) <= 15:
+            return [
+                {
+                    "qualified_name": t.qualified_name,
+                    "description": t.description,
+                    "score": 1.0,
+                    "domain_tags": t.domain_tags,
+                    "column_names": [c.name for c in t.columns],
+                }
+                for t in all_active_tables
+            ]
+
+        matches: list[TableMatch] = await self.embeddings.search(query, top_k=top_k * 2)
+        matches = [
+            m for m in matches 
+            if m and hasattr(m, "qualified_name") and self.registry and self.registry.get(m.qualified_name) is not None
+        ][:top_k]
+
         if not matches and self.registry:
-            all_tbls = self.registry.all_tables()
             return [
                 {
                     "qualified_name": t.qualified_name,
@@ -95,7 +117,7 @@ class ModelFacade:
                     "domain_tags": t.domain_tags,
                     "column_names": [c.name for c in t.columns],
                 }
-                for t in all_tbls[:top_k]
+                for t in all_active_tables[:top_k]
             ]
         return [
             {

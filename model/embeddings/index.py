@@ -70,6 +70,13 @@ class EmbeddingIndex:
             }
             for t in tables
         ]
+        current_ids = set(ids)
+        existing = col.get()
+        if existing and "ids" in existing and existing["ids"]:
+            stale_ids = [id_ for id_ in existing["ids"] if id_ not in current_ids]
+            if stale_ids:
+                col.delete(ids=stale_ids)
+                logger.info("Deleted %d stale table(s) from ChromaDB", len(stale_ids))
 
         embeddings = await self._encoder.encode(texts)
         col.upsert(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas)
