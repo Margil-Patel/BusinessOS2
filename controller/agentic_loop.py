@@ -144,16 +144,20 @@ class AgenticLoop:
         if reasoning_analysis:
             logger.info("\n" + "="*50 + "\nSENIOR ANALYST REASONING:\n" + reasoning_analysis + "\n" + "="*50)
 
-        # Pre-populate context with tables from history (carry-forward)
-        pre_context = self._build_pre_context(history)
+        # Context Isolation (Rule 1): Check if query is contextual vs standalone
+        is_contextual = self._generator._is_contextual_query(nl_query)
+        effective_history = history if is_contextual else None
+
+        # Pre-populate context with tables from history (carry-forward only for contextual queries)
+        pre_context = self._build_pre_context(effective_history) if is_contextual else SchemaContext()
 
         schema_context: SchemaContext | None = None
 
         for i in range(self._max_iter):
             state.iteration = i + 1
             logger.info(
-                "[AgenticLoop] Iteration %d/%d | errors_so_far=%d",
-                state.iteration, self._max_iter, len(state.errors),
+                "[AgenticLoop] Iteration %d/%d | errors_so_far=%d | contextual=%s",
+                state.iteration, self._max_iter, len(state.errors), is_contextual,
             )
 
             # ── THOUGHT: gather / refresh schema context ──────────────────────
@@ -162,7 +166,7 @@ class AgenticLoop:
             try:
                 schema_context = await self._orchestrator.gather_context(
                     intent,
-                    history=history,
+                    history=effective_history,
                     initial_context=pre_context if i == 0 else schema_context,
                     reasoning_analysis=reasoning_analysis,
                 )

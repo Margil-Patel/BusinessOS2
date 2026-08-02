@@ -29,13 +29,11 @@ const TableDetail = ({ table = {}, onBack }) => {
       const result = await api.getTableData(qualifiedName);
       setData(result);
 
-      // If columns info is missing from props, fetch schema columns
-      if (!table?.columns) {
-        try {
-          const s = await api.getDataSchema(qualifiedName);
-          setSchemaInfo(s);
-        } catch { /* schema metadata optional fallback */ }
-      }
+      // Fetch live schema info to ensure up-to-date column definitions
+      try {
+        const s = await api.getDataSchema(qualifiedName);
+        setSchemaInfo(s);
+      } catch { /* schema metadata optional fallback */ }
     } catch (e) {
       setError(e.message || 'Failed to fetch table details');
     } finally {
@@ -43,9 +41,14 @@ const TableDetail = ({ table = {}, onBack }) => {
     }
   };
 
-  const columnsList  = table?.columns || schemaInfo?.columns || (data?.columns ? data.columns.map(c => ({ name: c, type: 'TEXT' })) : []);
-  const columnsCount = columnsList.length || (data?.columns ? data.columns.length : 0);
-  const approxRows   = table?.row_count_approx ?? data?.rows?.length ?? 'Unknown';
+  const columnsList  = schemaInfo?.columns || (data?.columns ? data.columns.map(c => ({ name: c, type: 'TEXT' })) : (table?.columns || []));
+  const columnsCount = columnsList.length;
+  const approxRows   = data?.rows?.length ?? table?.row_count_approx ?? 'Unknown';
+
+  // Live columns array for table rendering
+  const activeColumns = data?.columns && data.columns.length > 0 
+    ? data.columns 
+    : (schemaInfo?.columns ? schemaInfo.columns.map(c => c.name) : (table?.columns ? table.columns.map(c => c.name) : []));
 
   return (
     <div className="view-container">
@@ -102,7 +105,7 @@ const TableDetail = ({ table = {}, onBack }) => {
             <table>
               <thead>
                 <tr>
-                  {(data.columns || []).map((col) => (
+                  {(activeColumns || []).map((col) => (
                     <th key={col}>{col}</th>
                   ))}
                 </tr>
@@ -110,13 +113,13 @@ const TableDetail = ({ table = {}, onBack }) => {
               <tbody>
                 {(data.rows || []).map((row, i) => (
                   <tr key={i}>
-                    {(data.columns || []).map((col) => (
+                    {(activeColumns || []).map((col) => (
                       <td key={col}>
                         <OdometerCell 
                           value={row[col]} 
                           columnName={col} 
                           tableName={qualifiedName} 
-                          rowId={row.tile_id || row.tile_name || row.id || row[(data.columns || [])[0]] || i} 
+                          rowId={row.tile_id || row.tile_name || row.id || row[(activeColumns || [])[0]] || i} 
                         />
                       </td>
                     ))}

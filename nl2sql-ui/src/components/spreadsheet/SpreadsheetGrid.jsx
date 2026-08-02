@@ -5,7 +5,7 @@ import EmptyRow from './EmptyRow';
 const SKELETON_ROW_COUNT = 10;
 const MIN_COL_WIDTH = 80;
 const DEFAULT_COL_WIDTH = 160;
-const ROW_HEIGHT = 34;
+const ROW_HEIGHT = 46;
 const OVERSCAN = 5;
 
 // Header badge colour theme per editorType
@@ -65,6 +65,7 @@ const SpreadsheetGrid = ({
   const containerRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [clientHeight, setClientHeight] = useState(600);
+  const [hoveredHeaderCol, setHoveredHeaderCol] = useState(null);
 
   const handleScroll = (e) => {
     setScrollTop(e.target.scrollTop);
@@ -126,7 +127,7 @@ const SpreadsheetGrid = ({
   return (
     <div
       ref={setCombinedRef}
-      className="ss-grid-container"
+      className="ss-grid-container custom-scrollbar"
       tabIndex={0}
       onScroll={handleScroll}
       onKeyDown={onKeyDown}
@@ -136,6 +137,7 @@ const SpreadsheetGrid = ({
         overflowY: 'auto',
         position: 'relative',
         outline: 'none',
+        background: '#0d1117'
       }}
     >
       {/* ── Sticky header ─────────────────────────────────────── */}
@@ -146,27 +148,31 @@ const SpreadsheetGrid = ({
           position: 'sticky',
           top: 0,
           zIndex: 15,
-          background: 'linear-gradient(to bottom, #161b22, #0d1117)',
-          borderBottom: '2px solid rgba(47,129,247,0.3)',
+          background: '#161b22',
+          borderBottom: '1px solid var(--border-color)',
+          borderLeft: '3px solid transparent',
+          boxSizing: 'border-box',
           minWidth: 'max-content',
+          height: 42
         }}
       >
         {/* Row number / Master Select All header */}
         <div style={{
           width: 55,
           minWidth: 55,
-          height: 36,
+          boxSizing: 'border-box',
+          height: 42,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          borderRight: '1px solid rgba(48,54,61,0.6)',
+          borderRight: '1px solid var(--border-color)',
           flexShrink: 0,
-          fontSize: '0.7rem',
-          color: 'rgba(139,148,158,0.4)',
+          fontSize: '0.75rem',
+          color: 'var(--text-secondary)',
           background: '#0d1117',
-          fontWeight: 500,
+          fontWeight: 600,
           userSelect: 'none',
-          gap: 4,
+          gap: 6,
           position: 'sticky',
           left: 0,
           zIndex: 16,
@@ -178,7 +184,6 @@ const SpreadsheetGrid = ({
             title="Select / Deselect all rows on page"
             style={{ cursor: 'pointer', accentColor: 'var(--accent)', margin: 0 }}
           />
-          #
         </div>
 
         {columns.map((col, colIdx) => {
@@ -189,17 +194,22 @@ const SpreadsheetGrid = ({
           const frozenLeft = isFrozen ? currentHeaderFrozenOffset : undefined;
           if (isFrozen) currentHeaderFrozenOffset += width;
 
+          const typeLabel = (col.data_type || col.type || 'TEXT').toUpperCase();
+
           return (
             <div
               key={col.name}
               className="ss-header-cell"
               onClick={() => onHeaderSortClick?.(col.name)}
-              title="Click to sort column"
+              onMouseEnter={() => setHoveredHeaderCol(col.name)}
+              onMouseLeave={() => setHoveredHeaderCol(null)}
+              title={`Column: ${col.name} | Data Type: ${typeLabel}`}
               style={{
-                width, minWidth: width, height: 36,
+                width, minWidth: width, height: 42,
+                boxSizing: 'border-box',
                 display: 'flex', alignItems: 'center',
                 padding: '0 12px',
-                borderRight: '1px solid rgba(48,54,61,0.6)',
+                borderRight: '1px solid var(--border-color)',
                 flexShrink: 0, gap: 6, userSelect: 'none',
                 cursor: 'pointer',
                 position: isFrozen ? 'sticky' : 'relative',
@@ -208,32 +218,91 @@ const SpreadsheetGrid = ({
                 background: isFrozen ? '#161b22' : 'transparent',
               }}
             >
+              {/* Datatype Hover Tooltip Popup */}
+              {hoveredHeaderCol === col.name && (
+                <div style={{
+                  position: 'absolute',
+                  top: -34,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: '#1c2128',
+                  border: '1px solid #388bfd',
+                  borderRadius: 6,
+                  padding: '4px 10px',
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  color: 'white',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 6px 16px rgba(0,0,0,0.6)',
+                  zIndex: 999,
+                  pointerEvents: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Data Type:</span>
+                  <span style={{ color: '#58a6ff', fontFamily: 'var(--font-mono)' }}>{typeLabel}</span>
+                </div>
+              )}
+
               {col.is_primary_key && (
-                <span style={{
-                  fontSize: '0.6rem', fontWeight: 700, color: '#e3b341',
-                  background: 'rgba(227,179,65,0.12)', border: '1px solid rgba(227,179,65,0.3)',
-                  borderRadius: 3, padding: '1px 4px', lineHeight: 1.4, flexShrink: 0,
-                }}>PK</span>
+                <span title="Primary Key" style={{ fontSize: '0.85rem', flexShrink: 0 }}>🔑</span>
               )}
 
               <span style={{
-                fontSize: '0.8rem', fontWeight: 600,
-                color: isSorted ? 'var(--accent)' : 'var(--text-primary)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+                fontSize: '0.82rem', fontWeight: 600,
+                color: 'white',
+                textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap',
+                flex: 1,
               }}>
-                {col.name} {isSorted ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                {col.name}
               </span>
 
-              <span style={{
-                fontSize: '0.63rem',
-                color: TYPE_COLORS[col.editorDescriptor?.editorType] ?? 'var(--text-secondary)',
-                fontFamily: 'var(--font-mono)', flexShrink: 0, opacity: 0.85,
-                background: TYPE_BG[col.editorDescriptor?.editorType] ?? 'rgba(255,255,255,0.04)',
-                padding: '1px 5px', borderRadius: 3,
-                border: `1px solid ${TYPE_BORDER[col.editorDescriptor?.editorType] ?? 'rgba(48,54,61,0.6)'}`,
-              }}>
-                {col.editorDescriptor?.label ?? col.data_type}
-              </span>
+              {/* Sleek Blue Sort Arrow Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onHeaderSortClick?.(col.name);
+                }}
+                title={
+                  isSorted
+                    ? `Sorted ${sortConfig.direction.toUpperCase()} - Click to toggle row order`
+                    : `Click to change row order by ${col.name}`
+                }
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                  border: isSorted ? '1px solid rgba(56, 139, 253, 0.6)' : '1px solid rgba(56, 139, 253, 0.25)',
+                  background: isSorted ? 'rgba(56, 139, 253, 0.3)' : 'rgba(56, 139, 253, 0.1)',
+                  color: '#388bfd',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease',
+                  marginLeft: 4,
+                  padding: 0,
+                }}
+              >
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    transform: isSorted && sortConfig.direction === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                  }}
+                >
+                  <path d="M2 4l4 4 4-4" />
+                </svg>
+              </button>
 
               <div
                 className="ss-resize-handle"
@@ -302,40 +371,6 @@ const SpreadsheetGrid = ({
           </>
         )}
       </div>
-
-      {/* ── Add Row sticky footer ────────────────────────────── */}
-      {!loading && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '6px 12px',
-          borderTop: '1px solid rgba(48,54,61,0.4)',
-          background: 'rgba(8,10,14,0.4)',
-          minWidth: 'max-content',
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 5,
-        }}>
-          <button
-            onClick={onAddRow}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '4px 12px', borderRadius: 5,
-              background: 'rgba(47,129,247,0.08)',
-              border: '1px solid rgba(47,129,247,0.25)',
-              color: 'var(--accent)',
-              fontSize: '0.78rem', fontWeight: 500,
-              cursor: 'pointer', transition: 'all 0.15s',
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Add Row
-          </button>
-        </div>
-      )}
     </div>
   );
 };

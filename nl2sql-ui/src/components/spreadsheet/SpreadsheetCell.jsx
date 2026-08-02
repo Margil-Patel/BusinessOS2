@@ -49,8 +49,8 @@ const SpreadsheetCell = ({
     width:       width ? `${width}px`  : undefined,
     minWidth:    width ? `${width}px`  : '120px',
     maxWidth:    width ? `${width}px`  : undefined,
-    padding:     isEditing ? 0 : '0 10px',
-    height:      34,
+    padding:     isEditing ? 0 : '0 12px',
+    height:      46,
     display:     'flex',
     alignItems:  'center',
     justifyContent: align === 'right'  ? 'flex-end'

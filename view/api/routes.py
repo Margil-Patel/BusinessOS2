@@ -132,6 +132,14 @@ async def health(request: Request) -> HealthResponse:
     )
 
 
+@router.post("/sync", summary="Re-sync schema and ChromaDB embeddings")
+async def sync_schema_endpoint(request: Request) -> dict[str, Any]:
+    """Manually trigger schema sync to update registry and clean ChromaDB embeddings."""
+    model = get_model(request)
+    count = await model.sync_schema()
+    return {"status": "ok", "tables_loaded": count}
+
+
 @router.get("/tables", response_model=list[dict], summary="List all registered tables")
 async def list_tables(request: Request) -> list[dict[str, Any]]:
     """Returns all tables currently in the registry with their metadata."""
@@ -150,11 +158,17 @@ async def get_table_data(fqn: str, request: Request, limit: int = 50) -> dict[st
         raise HTTPException(status_code=404, detail=f"Table {fqn} not found")
     
     try:
-        # Since we are fetching from a registered table, we trust the FQN
-        # but we still use the DB abstraction
-        query = f"SELECT * FROM {fqn} LIMIT {limit}"
+        pk_cols = [c.name for c in table.columns if c.is_primary_key]
+        if pk_cols:
+            order_clause = "ORDER BY " + ", ".join(f'"{c}" ASC' for c in pk_cols)
+        elif table.columns:
+            order_clause = f'ORDER BY "{table.columns[0].name}" ASC'
+        else:
+            order_clause = ""
+
+        query = f'SELECT * FROM "{table.schema}"."{table.name}" {order_clause} LIMIT {limit}'
         rows = await model.db.execute(query)
-        columns = list(rows[0].keys()) if rows else []
+        columns = [c.name for c in table.columns]
         
         return {
             "fqn": fqn,
@@ -252,21 +266,27 @@ async def create_table(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.post("/schema/tables/{fqn:path}/columns", response_model=SchemaOperationResponse, summary="Add a column to a table")
-async def add_column(
+# ── Column-level routes (Must be declared BEFORE generic table-level {fqn:path} routes) ──
+
+@router.get("/schema/tables/{fqn:path}/columns/{column_name}/delete-check", response_model=DeletionSafetyResponse, summary="Check column deletion safety")
+async def check_column_deletion(
     fqn: str,
-    req: AddColumnRequest,
+    column_name: str,
     schema_service: SchemaService = Depends(get_schema_service),
-) -> SchemaOperationResponse:
+) -> DeletionSafetyResponse:
     try:
-        await schema_service.add_column(fqn, req.name, req.type)
-        return SchemaOperationResponse(
+        report = await schema_service.get_column_deletion_report(fqn, column_name)
+        return DeletionSafetyResponse(
             success=True,
-            message=f"Column {req.name} added to table {fqn} successfully",
-            data={"fqn": fqn, "column_name": req.name, "column_type": req.type}
+            safe=report["safe"],
+            has_data=report["has_data"],
+            row_count=report["row_count"],
+            dependent_fks=report["dependent_fks"],
+            indexes=report["indexes"],
+            warnings=report["warnings"]
         )
     except Exception as exc:
-        logger.exception("Error adding column %s to table %s: %s", req.name, fqn, exc)
+        logger.exception("Error checking deletion safety for column %s.%s: %s", fqn, column_name, exc)
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -326,6 +346,26 @@ async def drop_column(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.post("/schema/tables/{fqn:path}/columns", response_model=SchemaOperationResponse, summary="Add a column to a table")
+async def add_column(
+    fqn: str,
+    req: AddColumnRequest,
+    schema_service: SchemaService = Depends(get_schema_service),
+) -> SchemaOperationResponse:
+    try:
+        await schema_service.add_column(fqn, req.name, req.type)
+        return SchemaOperationResponse(
+            success=True,
+            message=f"Column {req.name} added to table {fqn} successfully",
+            data={"fqn": fqn, "column_name": req.name, "column_type": req.type}
+        )
+    except Exception as exc:
+        logger.exception("Error adding column %s to table %s: %s", req.name, fqn, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── Table-level routes ──
+
 @router.post("/schema/tables/{fqn:path}/alter", response_model=SchemaOperationResponse, summary="Alter an existing table schema")
 async def alter_table(
     fqn: str,
@@ -335,14 +375,13 @@ async def alter_table(
 ) -> SchemaOperationResponse:
     try:
         model = get_model(request)
-        # Convert columns to list of dicts for SchemaService
         cols_list = [col.model_dump() for col in req.columns]
         await schema_service.alter_table(fqn, cols_list)
         table_meta = model.registry.get(fqn)
         return SchemaOperationResponse(
             success=True,
             message=f"Table {fqn} altered successfully",
-            data=table_meta.to_dict() if table_meta else {"fqn": fqn}
+            data=table_meta.to_dict() if table_meta else {"fqn": req.fqn}
         )
     except Exception as exc:
         logger.exception("Error altering table %s: %s", fqn, exc)
@@ -367,28 +406,6 @@ async def check_table_deletion(
         )
     except Exception as exc:
         logger.exception("Error checking deletion safety for table %s: %s", fqn, exc)
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-@router.get("/schema/tables/{fqn:path}/columns/{column_name}/delete-check", response_model=DeletionSafetyResponse, summary="Check column deletion safety")
-async def check_column_deletion(
-    fqn: str,
-    column_name: str,
-    schema_service: SchemaService = Depends(get_schema_service),
-) -> DeletionSafetyResponse:
-    try:
-        report = await schema_service.get_column_deletion_report(fqn, column_name)
-        return DeletionSafetyResponse(
-            success=True,
-            safe=report["safe"],
-            has_data=report["has_data"],
-            row_count=report["row_count"],
-            dependent_fks=report["dependent_fks"],
-            indexes=report["indexes"],
-            warnings=report["warnings"]
-        )
-    except Exception as exc:
-        logger.exception("Error checking deletion safety for column %s.%s: %s", fqn, column_name, exc)
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -510,6 +527,8 @@ async def get_table_rows(
     fqn: str,
     page: int = 1,
     page_size: int = 50,
+    sort_col: str | None = None,
+    sort_dir: str = "asc",
     data_service: DataService = Depends(get_data_service),
 ) -> TableRowsResponse:
     """
@@ -517,9 +536,13 @@ async def get_table_rows(
 
     - ``page``      : 1-indexed page number (default 1)
     - ``page_size`` : rows per page (default 50, max 1000)
+    - ``sort_col``  : optional column name to sort by
+    - ``sort_dir``  : sort direction ("asc" or "desc")
     """
     try:
-        result = await data_service.get_table_rows(fqn, page=page, page_size=page_size)
+        result = await data_service.get_table_rows(
+            fqn, page=page, page_size=page_size, sort_col=sort_col, sort_dir=sort_dir
+        )
         return TableRowsResponse(
             success=True,
             fqn=result["fqn"],

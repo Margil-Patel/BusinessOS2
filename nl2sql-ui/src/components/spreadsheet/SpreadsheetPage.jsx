@@ -28,6 +28,8 @@ const stripMeta = (row) => {
  */
 const SpreadsheetPage = ({
   fqn,
+  tables = [],
+  onSelectTable,
   fetchSchema,
   fetchRows,
   pageSize: pageSizeProp = DEFAULT_PAGE_SIZE,
@@ -111,57 +113,16 @@ const SpreadsheetPage = ({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
 
-  // ── Draft auto-save to localStorage ──────────────────────────────────────
+  // Clear any legacy localStorage draft keys on mount
   useEffect(() => {
-    if (!fqn || !isDirty || localRows.length === 0) return;
-    const draftKey = `bus_os_draft_${fqn}`;
-    const timer = setTimeout(() => {
-      try {
-        const draftData = {
-          localRows: localRows.filter((r) => r._isDirty || r._isNew).map(stripMeta),
-          timestamp: new Date().toISOString(),
-        };
-        localStorage.setItem(draftKey, JSON.stringify(draftData));
-      } catch { /* storage full */ }
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [fqn, isDirty, localRows]);
-
-  // Check for saved draft on table load
-  useEffect(() => {
-    if (!fqn) return;
-    const draftKey = `bus_os_draft_${fqn}`;
-    const saved = localStorage.getItem(draftKey);
-    if (saved) setHasSavedDraft(true);
-  }, [fqn]);
-
-  const handleRestoreDraft = useCallback(() => {
-    if (!fqn) return;
-    const draftKey = `bus_os_draft_${fqn}`;
     try {
-      const saved = JSON.parse(localStorage.getItem(draftKey) || '{}');
-      if (saved.localRows && Array.from(saved.localRows).length > 0) {
-        pushHistory(localRows, deletedRows);
-        const restoredNewRows = saved.localRows.map((r) => ({
-          ...r,
-          _rowId: nextRowId(),
-          _isNew: true,
-          _isDirty: true,
-        }));
-        setLocalRows((prev) => [...restoredNewRows, ...prev]);
-        setIsDirty(true);
-        showToast('Restored unsaved draft records!', 'success');
-      }
-    } catch { showToast('Failed to restore draft', 'error'); }
-    setHasSavedDraft(false);
-    localStorage.removeItem(draftKey);
-  }, [fqn, localRows, deletedRows, pushHistory, showToast]);
-
-  const handleDismissDraft = useCallback(() => {
-    if (!fqn) return;
-    localStorage.removeItem(`bus_os_draft_${fqn}`);
-    setHasSavedDraft(false);
-  }, [fqn]);
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('bus_os_draft_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch { /* storage access error */ }
+  }, []);
 
   // ── Schema fetch ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -902,20 +863,6 @@ const SpreadsheetPage = ({
       className="ss-page"
       style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#0d1117', borderRadius: 8, border: '1px solid var(--border-color)', position: 'relative', ...style }}
     >
-      {/* ── Saved Draft Restore Notification Banner ──────────── */}
-      {hasSavedDraft && !isDirty && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '6px 16px', background: 'rgba(227,179,65,0.12)', borderBottom: '1px solid rgba(227,179,65,0.3)',
-          color: '#e3b341', fontSize: '0.78rem', fontFamily: 'var(--font-mono)', zIndex: 30,
-        }}>
-          <span>Unsaved draft found for {fqn} from a previous session.</span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleRestoreDraft} style={{ background: 'rgba(227,179,65,0.2)', border: '1px solid rgba(227,179,65,0.4)', color: '#e3b341', padding: '2px 8px', borderRadius: 4, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Restore Draft</button>
-            <button onClick={handleDismissDraft} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem' }}>Dismiss</button>
-          </div>
-        </div>
-      )}
 
       {/* ── Floating Toast Notification Banner ────────────────── */}
       {notification && (
@@ -967,9 +914,11 @@ const SpreadsheetPage = ({
         />
       )}
 
-      {/* ── Toolbar ─────────────────────────────────────────────── */}
+      {/* ── Toolbar & Top Bar ───────────────────────────────────── */}
       <SpreadsheetToolbar
-        fqn={fqn}
+        tables={tables}
+        selectedFqn={fqn}
+        onSelectTable={onSelectTable}
         totalCount={totalCount}
         rowCount={processedRows.length}
         page={page}
@@ -979,12 +928,15 @@ const SpreadsheetPage = ({
         onPageChange={handlePageChange}
         onPageSizeChange={handlePageSizeChange}
         onRefresh={handleRefresh}
-        activeCell={activeCell}
         isDirty={isDirty}
         dirtyCount={dirtyCount}
         errorCount={errorCount}
         selectedRowCount={checkedRowIndexes.size}
+        onAddRow={handleAddRow}
         onDeleteSelectedRows={handleDeleteSelectedRows}
+        onDuplicateRow={() => {
+          if (activeCell?.rowIndex !== undefined) handleDuplicateRow(activeCell.rowIndex);
+        }}
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
         onUndo={handleUndo}
@@ -994,98 +946,297 @@ const SpreadsheetPage = ({
         columns={allColumns}
         hiddenColumns={hiddenColumns}
         onToggleColumnVisibility={handleToggleColumnVisibility}
-        frozenCount={frozenCount}
-        onFreezeChange={setFrozenCount}
         onExportCsv={handleExportCsv}
         onImportCsv={handleImportCsv}
-        saveState={saveState}
-        saveError={saveError}
-        saveStats={saveStats}
         onSave={handleSave}
-        onDismissError={handleDismissError}
       />
 
-      {/* ── Body ────────────────────────────────────────────────── */}
-      {fetchError && !loading ? (
-        <FetchErrorState />
-      ) : !schema && !loading ? (
-        <EmptyState />
-      ) : (
-        <SpreadsheetGrid
-          columns={visibleColumns}
-          rows={processedRows}
-          loading={loading}
-          columnWidths={columnWidths}
-          onColumnResize={handleColumnResize}
-          pageOffset={pageOffset}
-          activeCell={activeCell}
-          editingCell={editingCell}
-          editValue={editValue}
-          validationErrors={validationErrors}
-          checkedRowIndexes={checkedRowIndexes}
-          frozenCount={frozenCount}
-          sortConfig={sortConfig}
-          onHeaderSortClick={handleHeaderSortClick}
-          onToggleSelectRow={handleToggleSelectRow}
-          onToggleSelectAll={handleToggleSelectAll}
-          onCellClick={handleCellClick}
-          onCellDoubleClick={handleCellDoubleClick}
-          onCellContextMenu={handleCellContextMenu}
-          onEditChange={setEditValueSync}
-          onEditCommit={commitEdit}
-          onEditCancel={cancelEdit}
-          onKeyDown={handleKeyDown}
-          onDeleteRow={handleDeleteRow}
-          onAddRow={handleAddRow}
-          gridRef={gridRef}
-        />
-      )}
+      {/* ── Main Workspace Body (Grid + Side Panels) ──────────── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+        
+        {/* Left: Scrollable Data Grid */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {fetchError && !loading ? (
+            <FetchErrorState />
+          ) : !schema && !loading ? (
+            <EmptyState />
+          ) : (
+            <SpreadsheetGrid
+              columns={visibleColumns}
+              rows={processedRows}
+              loading={loading}
+              columnWidths={columnWidths}
+              onColumnResize={handleColumnResize}
+              pageOffset={pageOffset}
+              activeCell={activeCell}
+              editingCell={editingCell}
+              editValue={editValue}
+              validationErrors={validationErrors}
+              checkedRowIndexes={checkedRowIndexes}
+              frozenCount={frozenCount}
+              sortConfig={sortConfig}
+              onHeaderSortClick={handleHeaderSortClick}
+              onToggleSelectRow={handleToggleSelectRow}
+              onToggleSelectAll={handleToggleSelectAll}
+              onCellClick={handleCellClick}
+              onCellDoubleClick={handleCellDoubleClick}
+              onCellContextMenu={handleCellContextMenu}
+              onEditChange={setEditValueSync}
+              onEditCommit={commitEdit}
+              onEditCancel={cancelEdit}
+              onKeyDown={handleKeyDown}
+              onDeleteRow={handleDeleteRow}
+              onAddRow={handleAddRow}
+              gridRef={gridRef}
+            />
+          )}
+        </div>
 
-      {/* ── Footer status bar ────────────────────────────────────── */}
+        {/* Right: Record Details Panel & AI Assistant Panel */}
+        <div style={{
+          width: 360,
+          minWidth: 360,
+          background: '#161b22',
+          borderLeft: '1px solid var(--border-color)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflowY: 'auto',
+          padding: 16,
+          gap: 16,
+        }} className="custom-scrollbar">
+          
+          {/* ── RECORD DETAILS PANEL ───────────────────────────────── */}
+          <div style={{
+            background: '#0d1117',
+            border: '1px solid var(--border-color)',
+            borderRadius: 12,
+            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'white' }}>
+                Record Details
+              </div>
+              <button 
+                onClick={() => setActiveCell(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1rem' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Selected Row Identifier */}
+            {processedRows.length > 0 ? (
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
+                {allColumns[0]?.name || 'Row'}: {processedRows[activeCell?.rowIndex ?? 0]?.[allColumns[0]?.name] ?? (activeCell?.rowIndex ?? 0) + 1}
+              </div>
+            ) : null}
+
+            {/* Fields Vertical Form */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 300, overflowY: 'auto' }} className="custom-scrollbar">
+              {allColumns.map((col) => {
+                const activeRowIdx = activeCell?.rowIndex ?? 0;
+                const currentRow = processedRows[activeRowIdx] || {};
+                const val = currentRow[col.name] ?? '';
+
+                return (
+                  <div key={col.name} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      {col.name}
+                    </label>
+                    <input
+                      type="text"
+                      value={val}
+                      onChange={(e) => {
+                        const newRows = [...localRows];
+                        if (newRows[activeRowIdx]) {
+                          newRows[activeRowIdx] = { ...newRows[activeRowIdx], [col.name]: e.target.value, _isDirty: true };
+                          setLocalRows(newRows);
+                          setIsDirty(true);
+                        }
+                      }}
+                      style={{
+                        background: '#161b22',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 6,
+                        padding: '8px 12px',
+                        color: 'white',
+                        fontSize: '0.85rem',
+                        outline: 'none',
+                        fontFamily: col.editorDescriptor?.fontMono ? 'var(--font-mono)' : 'var(--font-sans)',
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Save Changes & Cancel Buttons */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+              <button
+                onClick={handleSave}
+                style={{
+                  flex: 1,
+                  background: '#388bfd',
+                  border: 'none',
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  padding: '9px 16px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(56, 139, 253, 0.3)',
+                }}
+              >
+                Save Changes
+              </button>
+              <button
+                onClick={() => handleRefresh()}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-secondary)',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  padding: '9px 16px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+
+          {/* ── AI ASSISTANT PANEL ───────────────────────────────── */}
+          <div style={{
+            background: '#0d1117',
+            border: '1px solid var(--border-color)',
+            borderRadius: 12,
+            padding: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#58a6ff', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>✨</span> AI Assistant
+              </div>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>▲</span>
+            </div>
+
+            {/* AI Prompt Input */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type="text"
+                placeholder="Ask AI..."
+                style={{
+                  width: '100%',
+                  background: '#161b22',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 8,
+                  padding: '8px 36px 8px 12px',
+                  color: 'white',
+                  fontSize: '0.82rem',
+                  outline: 'none',
+                }}
+              />
+              <button style={{
+                position: 'absolute', right: 6, background: '#388bfd', border: 'none',
+                color: 'white', borderRadius: 6, width: 26, height: 26, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                ✈️
+              </button>
+            </div>
+
+            {/* Quick Action Pills */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: 'Fill missing phone numbers', icon: '🪄' },
+                { label: 'Find duplicate rows', icon: '🔍' },
+                { label: 'Generate sample data', icon: '🎲' },
+                { label: 'Explain this table', icon: '💡' },
+                { label: 'Summarize selected rows', icon: '📊' },
+                { label: 'Generate SQL', icon: '⚡' },
+              ].map((act) => (
+                <button
+                  key={act.label}
+                  onClick={() => showToast(`AI Action "${act.label}" executed!`, 'info')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: '#161b22',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    fontSize: '0.78rem',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.borderColor = '#388bfd';
+                    e.target.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.borderColor = 'var(--border-color)';
+                    e.target.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  <span>{act.icon}</span>
+                  <span>{act.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ── 3. BOTTOM STATUS BAR (30px) ─────────────────────────── */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 16,
-        padding: '5px 14px',
-        background: 'rgba(8,10,14,0.7)',
-        borderTop: '1px solid rgba(48,54,61,0.6)',
-        fontSize: '0.72rem', color: 'rgba(139,148,158,0.6)',
-        flexShrink: 0, fontFamily: 'var(--font-mono)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 16px',
+        height: 30,
+        background: '#161b22',
+        borderTop: '1px solid var(--border-color)',
+        fontSize: '0.75rem',
+        color: 'var(--text-secondary)',
+        fontFamily: 'var(--font-mono)',
       }}>
-        <span>{visibleColumns.length}/{allColumns.length} columns visible</span>
-        <span>·</span>
-        <span>{processedRows.length} / {totalCount.toLocaleString()} rows</span>
-        {checkedRowIndexes.size > 0 && (
-          <>
-            <span>·</span>
-            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
-              {checkedRowIndexes.size} row{checkedRowIndexes.size !== 1 ? 's' : ''} selected
-            </span>
-          </>
-        )}
-        {activeCell && (
-          <>
-            <span>·</span>
-            <span style={{ color: 'var(--accent)' }}>
-              {activeCell.colName} [{activeCell.rowIndex + 1}]
-            </span>
-          </>
-        )}
-        {errorCount > 0 && (
-          <>
-            <span>·</span>
-            <span style={{ color: 'var(--danger)', fontWeight: 600 }}>
-              {errorCount} validation error{errorCount !== 1 ? 's' : ''}
-            </span>
-          </>
-        )}
-        {isDirty && !errorCount && (
-          <>
-            <span>·</span>
-            <span style={{ color: '#e3b341' }}>● {dirtyCount} row{dirtyCount !== 1 ? 's' : ''} modified</span>
-          </>
-        )}
-        <span style={{ marginLeft: 'auto' }}>
-          Right-click for Menu  •  CSV Export/Import  •  Draft Auto-Saved
-        </span>
+        {/* Left: Row Count & Selection */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span>{totalCount} rows</span>
+          <span>•</span>
+          <span>{checkedRowIndexes.size || (activeCell ? 1 : 0)} row selected</span>
+        </div>
+
+        {/* Center: Edited Fields */}
+        <div>
+          <span>{dirtyCount} fields edited</span>
+        </div>
+
+        {/* Right: Zoom & Auto Saved */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <select style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', outline: 'none', cursor: 'pointer' }}>
+            <option value="100">Zoom: 100%</option>
+            <option value="90">Zoom: 90%</option>
+            <option value="110">Zoom: 110%</option>
+          </select>
+
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#3fb950', fontWeight: 600 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3fb950' }} />
+            Auto Saved
+          </span>
+        </div>
       </div>
     </div>
   );

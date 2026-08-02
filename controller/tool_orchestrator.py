@@ -331,7 +331,12 @@ class ToolOrchestrator:
             ctx.relationships = result
         elif fn_name == "get_sample_values" and isinstance(result, list):
             key = f"{args.get('table', '?')}.{args.get('column', '?')}"
-            ctx.sample_values[key] = result
+            existing = ctx.sample_values.get(key, [])
+            combined = list(existing)
+            for val in result:
+                if val not in combined:
+                    combined.append(val)
+            ctx.sample_values[key] = combined[:15]
         elif fn_name == "search_data_values" and isinstance(result, list):
             # Format as sample values too, so SQL generator sees them
             for item in result:
@@ -339,7 +344,8 @@ class ToolOrchestrator:
                 if key not in ctx.sample_values:
                     ctx.sample_values[key] = []
                 if item['matched_value'] not in ctx.sample_values[key]:
-                    ctx.sample_values[key].append(item['matched_value'])
+                    # Prepend matched value so it is always preserved at the top
+                    ctx.sample_values[key].insert(0, item['matched_value'])
                 
                 # Also add matched table to tables_found so it appears in prompt's RELEVANT TABLES
                 existing = {t["qualified_name"] for t in ctx.tables_found}

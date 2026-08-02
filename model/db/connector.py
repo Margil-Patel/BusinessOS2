@@ -66,15 +66,35 @@ class DatabaseConnector:
     async def execute(self, sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """
         Execute a SQL statement and return rows as a list of dicts.
-        Raises RuntimeError on DB error (caller should catch).
+        Automatically retries queries once if asyncpg invalidates cached statements due to schema changes.
         """
-        async with self.session() as sess:
-            result = await sess.execute(text(sql), params or {})
-            if result.returns_rows:
-                cols = list(result.keys())
-                return [dict(zip(cols, row)) for row in result.fetchall()]
-            await sess.commit()
-            return []
+        try:
+            async with self.session() as sess:
+                result = await sess.execute(text(sql), params or {})
+                if result.returns_rows:
+                    cols = list(result.keys())
+                    return [dict(zip(cols, row)) for row in result.fetchall()]
+                await sess.commit()
+                return []
+        except Exception as exc:
+            err_str = str(exc)
+            err_type = str(type(exc))
+            if (
+                "InvalidCachedStatementError" in err_type
+                or "InvalidCachedStatementError" in err_str
+                or "cached statement plan is invalid" in err_str.lower()
+                or "statement plan is invalid" in err_str.lower()
+                or "prepared statement" in err_str.lower()
+            ):
+                logger.warning("InvalidCachedStatementError detected due to schema change. Retrying query cleanly: %s", sql)
+                async with self.session() as sess:
+                    result = await sess.execute(text(sql), params or {})
+                    if result.returns_rows:
+                        cols = list(result.keys())
+                        return [dict(zip(cols, row)) for row in result.fetchall()]
+                    await sess.commit()
+                    return []
+            raise
 
     async def execute_explain(self, sql: str) -> list[dict[str, Any]]:
         """Dry-run via EXPLAIN — used by SQLValidator."""
@@ -114,18 +134,35 @@ class DatabaseConnector:
                     OR table_name = '{table}'
                 """
                 cols = await self.execute(cols_query)
-                string_cols = [c['column_name'] for c in cols if 'char' in c['data_type'].lower() or 'text' in c['data_type'].lower()]
+                string_cols = [
+                    c['column_name'] for c in cols 
+                    if any(t in c['data_type'].lower() for t in ('char', 'text', 'str', 'varchar', 'citext', 'name', 'bpchar'))
+                ]
                 
+                # If information_schema query returned no string columns, fallback to common column names
+                if not string_cols and cols:
+                    string_cols = [c['column_name'] for c in cols]
+
                 for col in string_cols:
-                    # Case-insensitive search
-                    search_query = f'SELECT DISTINCT "{col}" FROM {table} WHERE "{col}" ILIKE :kw LIMIT 5'
+                    # 1. Exact phrase search
+                    search_query = f'SELECT DISTINCT "{col}" FROM {table} WHERE "{col}"::text ILIKE :kw LIMIT 5'
                     matches = await self.execute(search_query, {"kw": f"%{keyword}%"})
+                    
+                    # 2. Token fallback search if exact phrase gave no results and keyword has multiple words
+                    if not matches and " " in keyword:
+                        tokens = [t.strip() for t in keyword.split() if len(t.strip()) > 2]
+                        for token in tokens:
+                            token_matches = await self.execute(search_query, {"kw": f"%{token}%"})
+                            matches.extend(token_matches)
+
                     for m in matches:
-                        results.append({
-                            "table": table,
-                            "column": col,
-                            "matched_value": m[col]
-                        })
+                        val = m.get(col)
+                        if val is not None and not any(r['matched_value'] == val and r['table'] == table and r['column'] == col for r in results):
+                            results.append({
+                                "table": table,
+                                "column": col,
+                                "matched_value": str(val)
+                            })
             except Exception as exc:
                 logger.warning("Search failed for table %s: %s", table, exc)
         return results

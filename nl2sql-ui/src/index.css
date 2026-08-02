@@ -166,17 +166,26 @@ button {
   display: flex;
   flex-direction: column;
   position: relative;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .topbar {
-  height: 64px;
+  height: 48px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
-  padding: 0 24px;
+  padding: 0 16px;
   font-weight: 500;
-  background: rgba(13, 17, 23, 0.6);
+  background: rgba(13, 17, 23, 0.8);
   backdrop-filter: blur(8px);
+  flex-shrink: 0;
+}
+
+.topbar h2 {
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
 }
 
 /* Chat Area */
@@ -535,7 +544,6 @@ th {
   padding: 12px 24px;
   font-weight: 600;
   font-size: 0.85rem;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
@@ -1238,19 +1246,28 @@ th {
   background: rgba(47, 129, 247, 0.5);
 }
 
-/* Grid scrollbar styling (inherits global but tighter) */
+/* Grid scrollbar styling (high visibility & smooth horizontal scrolling) */
 .ss-grid-container::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 10px;
+}
+
+.ss-grid-container::-webkit-scrollbar-track {
+  background: rgba(13, 17, 23, 0.8);
 }
 
 .ss-grid-container::-webkit-scrollbar-thumb {
-  background: rgba(48, 54, 61, 0.8);
-  border-radius: 3px;
+  background: rgba(56, 139, 253, 0.4);
+  border-radius: 5px;
+  border: 2px solid #0d1117;
+}
+
+.ss-grid-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 139, 253, 0.8);
 }
 
 .ss-grid-container::-webkit-scrollbar-corner {
-  background: transparent;
+  background: #0d1117;
 }
 
 

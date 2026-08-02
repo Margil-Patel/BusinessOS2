@@ -48,6 +48,16 @@ async def search_data_values(
     """
     Returns: [{"table": "...", "column": "...", "matched_value": "..."}]
     """
+    all_registered = [t.qualified_name for t in model.registry.all_tables()]
     if not tables:
-        tables = [t.qualified_name for t in model.registry.all_tables()]
-    return await model.search_data_values(keyword, tables)
+        search_target = all_registered
+    else:
+        search_target = tables
+
+    results = await model.search_data_values(keyword, search_target)
+    
+    # If a subset of tables was provided and produced no results, fall back to all registered tables
+    if not results and tables and len(tables) < len(all_registered):
+        results = await model.search_data_values(keyword, all_registered)
+        
+    return results

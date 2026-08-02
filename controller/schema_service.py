@@ -531,8 +531,20 @@ class SchemaService:
                     )
                     summaries.append(f"Changed type of {name} from {curr_type_norm} to {target_type_norm}")
                 
+                # Check Primary Key change
+                if is_pk and not current_col.is_primary_key:
+                    pk_name = f"{table}_pkey"
+                    ddl_statements.append(f'ALTER TABLE "{schema}"."{table}" DROP CONSTRAINT IF EXISTS "{pk_name}"')
+                    ddl_statements.append(f'ALTER TABLE "{schema}"."{table}" ALTER COLUMN "{name}" SET NOT NULL')
+                    ddl_statements.append(f'ALTER TABLE "{schema}"."{table}" ADD CONSTRAINT "{pk_name}" PRIMARY KEY ("{name}")')
+                    summaries.append(f"Set column {name} as PRIMARY KEY")
+                elif not is_pk and current_col.is_primary_key:
+                    pk_name = f"{table}_pkey"
+                    ddl_statements.append(f'ALTER TABLE "{schema}"."{table}" DROP CONSTRAINT IF EXISTS "{pk_name}"')
+                    summaries.append(f"Removed PRIMARY KEY constraint from {name}")
+
                 # Check Nullability change
-                if current_col.nullable != nullable:
+                if current_col.nullable != nullable and not is_pk:
                     if nullable:
                         ddl_statements.append(f'ALTER TABLE "{schema}"."{table}" ALTER COLUMN "{name}" DROP NOT NULL')
                         summaries.append(f"Set column {name} NULL")

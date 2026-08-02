@@ -222,15 +222,19 @@ class DataService:
         fqn: str,
         page: int = 1,
         page_size: int = 50,
+        sort_col: str | None = None,
+        sort_dir: str = "asc",
     ) -> dict[str, Any]:
         """
-        Return paginated rows from the table.
+        Return paginated rows from the table with stable primary key sorting.
 
         Parameters
         ----------
         fqn       : fully qualified table name (``schema.table``)
         page      : 1-indexed page number
         page_size : rows per page (capped at MAX_PAGE_SIZE)
+        sort_col  : optional column name to sort by
+        sort_dir  : sort direction ("asc" or "desc")
         """
         schema, table = self._parse_and_validate_fqn(fqn)
 
@@ -239,10 +243,25 @@ class DataService:
         page_size = min(max(page_size, 1), MAX_PAGE_SIZE)
         offset = (page - 1) * page_size
 
+        # Determine stable ORDER BY clause
+        order_clause = ""
+        if sort_col:
+            self._validate_column_name(sort_col)
+            direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
+            order_clause = f'ORDER BY "{sort_col}" {direction}'
+        else:
+            table_meta = self.model.registry.get(fqn)
+            if table_meta and table_meta.columns:
+                pk_cols = [c.name for c in table_meta.columns if c.is_primary_key]
+                if pk_cols:
+                    order_clause = "ORDER BY " + ", ".join(f'"{c}" ASC' for c in pk_cols)
+                else:
+                    order_clause = f'ORDER BY "{table_meta.columns[0].name}" ASC'
+
         # fqn identifiers are validated above — safe to interpolate
         count_sql = text(f'SELECT COUNT(*) AS cnt FROM "{schema}"."{table}"')
-        rows_sql  = text(
-            f'SELECT * FROM "{schema}"."{table}" LIMIT :lim OFFSET :off'
+        rows_sql = text(
+            f'SELECT * FROM "{schema}"."{table}" {order_clause} LIMIT :lim OFFSET :off'
         )
 
         async with self.model.db.session() as sess:
